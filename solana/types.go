@@ -16,9 +16,9 @@ package solanago
 
 import (
 	"github.com/coinbase/rosetta-sdk-go/types"
-	bin "github.com/dfuse-io/binary"
-	"github.com/dfuse-io/solana-go"
-	dfuserpc "github.com/dfuse-io/solana-go/rpc"
+	bin "github.com/streamingfast/binary"
+	"github.com/streamingfast/solana-go"
+	dfuserpc "github.com/streamingfast/solana-go/rpc"
 )
 
 const (
