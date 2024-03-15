@@ -34,8 +34,9 @@ import (
 
 // ConstructionAPIService implements the server.ConstructionAPIServicer interface.
 type ConstructionAPIService struct {
-	config *configuration.Configuration
-	client *solanago.Client
+	config       *configuration.Configuration
+	client       *solanago.Client
+	directClient *DirectClient
 }
 
 // NewConstructionAPIService creates a new instance of a ConstructionAPIService.
@@ -43,9 +44,11 @@ func NewConstructionAPIService(
 	cfg *configuration.Configuration,
 	client *solanago.Client,
 ) *ConstructionAPIService {
+	var directClient = NewClient(cfg.GethURL)
 	return &ConstructionAPIService{
-		config: cfg,
-		client: client,
+		config:       cfg,
+		client:       client,
+		directClient: directClient,
 	}
 }
 
@@ -69,11 +72,15 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 	request *types.ConstructionPreprocessRequest,
 ) (*types.ConstructionPreprocessResponse, *types.Error) {
 	withNonce, _ := solanago.GetWithNonce(request.Metadata)
+	fmt.Printf("withNonce=%v\n", withNonce)
+	fmt.Printf("request.Operations=%v\n", request.Operations)
 
 	var matchedOperationHashMap map[int64]bool = make(map[int64]bool)
 
 	var SplSystemAccMap map[int64]solanago.SplAccounts = make(map[int64]solanago.SplAccounts)
 	for _, op := range request.Operations {
+		fmt.Printf("op=%v\n", op)
+
 		var cont bool
 		var matched *types.Operation
 		cont, matched = FindMatch(request.Operations, op, matchedOperationHashMap)
@@ -103,22 +110,31 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 	ctx context.Context,
 	request *types.ConstructionMetadataRequest,
 ) (*types.ConstructionMetadataResponse, *types.Error) {
+	fmt.Println("START /construction/metadata")
 	if s.config.Mode != configuration.Online {
 		return nil, ErrUnavailableOffline
 	}
 
 	var hash string
+	var blockNumber uint64
 	var fee ss.FeeCalculator
 	withNonce, hasNonce := solanago.GetWithNonce(request.Options)
+	fmt.Printf("withNonce=%v\n", withNonce)
+	fmt.Printf("hasNonce=%v\n", hasNonce)
 	if hasNonce {
+		fmt.Println("inside hasNonce=true")
 		acc, _ := s.client.Rpc.GetAccountInfoParsed(ctx, withNonce.Account)
 		withNonce.Authority = acc.Data.Nonce.Initialized.Authority
 		hash = acc.Data.Nonce.Initialized.BlockHash
 		fee = acc.Data.Nonce.Initialized.FeeCalculator
 	} else {
-		recentBlockhash, _ := s.client.Rpc.GetRecentBlockhash(ctx)
-		hash = recentBlockhash.Blockhash
-		fee = recentBlockhash.FeeCalculator
+		fmt.Println("inside hasNonce=false")
+		recentBlockhash, _ := s.directClient.GetRecentBlockhash(ctx)
+		hash = recentBlockhash.Value.Blockhash
+		blockNumber = recentBlockhash.Context.Slot
+		fee = recentBlockhash.Value.FeeCalculator
+		fmt.Printf("fee=%d\n", fee)
+		fmt.Printf("blockHash=%d\n", hash)
 	}
 
 	var SplTokenAccMap map[string]solanago.SplAccounts = make(map[string]solanago.SplAccounts)
@@ -143,9 +159,13 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 
 	meta, _ := marshalJSONMap(ConstructionMetadata{
 		BlockHash:         hash,
+		BlockNumber:       blockNumber,
 		FeeCalculator:     fee,
 		SplTokenAccMapKey: SplTokenAccMap,
 	})
+
+	fmt.Printf("meta=%v\n", meta)
+	fmt.Println("END /construction/metadata")
 
 	return &types.ConstructionMetadataResponse{
 		Metadata: meta,
@@ -157,6 +177,7 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 		},
 	}, nil
 }
+
 func FindMatch(ops []*types.Operation, op *types.Operation, matchedOperationHashMap map[int64]bool) (bool, *types.Operation) {
 	if _, ok := matchedOperationHashMap[op.OperationIdentifier.Index]; ok {
 		return true, nil
@@ -196,6 +217,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	ctx context.Context,
 	request *types.ConstructionPayloadsRequest,
 ) (*types.ConstructionPayloadsResponse, *types.Error) {
+	fmt.Println("START /construction/payloads")
 	var instructions []solPTypes.Instruction
 
 	// Convert map to Metadata struct
@@ -208,6 +230,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	var feePayer common.PublicKey
 	var matchedOperationHashMap map[int64]bool = make(map[int64]bool)
 	for _, op := range request.Operations {
+		fmt.Printf("op=%v\n", op)
 		var cont bool
 		var matched *types.Operation
 		cont, matched = FindMatch(request.Operations, op, matchedOperationHashMap)
@@ -246,6 +269,8 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 		} else {
 			matchedOperationHashMap[op.OperationIdentifier.Index] = true
 		}
+
+		fmt.Printf("tmpOP.Type=%s\n", tmpOP.Type)
 		switch strings.Split(tmpOP.Type, solanago.Separator)[0] {
 		case "System":
 			s := operations.SystemOperationMetadata{}
@@ -306,6 +331,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	msgBytes, _ := tx.Message.Serialize()
 	var signingPayloads []*types.SigningPayload
 	for _, sg := range signers {
+		fmt.Println("sg=", sg)
 		signingPayloads = append(signingPayloads, &types.SigningPayload{
 			AccountIdentifier: &types.AccountIdentifier{
 				Address: sg,
@@ -321,6 +347,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 	}
 
+	fmt.Println("END /construction/payloads")
 	return &types.ConstructionPayloadsResponse{
 		UnsignedTransaction: base58.Encode(txUnsigned),
 		Payloads:            signingPayloads,
@@ -356,6 +383,7 @@ func (s *ConstructionAPIService) ConstructionCombine(
 	ctx context.Context,
 	request *types.ConstructionCombineRequest,
 ) (*types.ConstructionCombineResponse, *types.Error) {
+	fmt.Println("START /construction/combine")
 
 	tx, err := solanago.GetTxFromStr(request.UnsignedTransaction)
 	if err != nil {
@@ -370,13 +398,16 @@ func (s *ConstructionAPIService) ConstructionCombine(
 		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 	}
 	for i, p := range positions {
+		fmt.Println("p=", p, "i=", i)
 		tx.Signatures[p] = request.Signatures[i].Bytes
+		fmt.Println("tx.Signatures[p]=", tx.Signatures[p])
 	}
 	signedTx, err := tx.Serialize()
 	if err != nil {
 		return nil, wrapErr(ErrSignatureInvalid, err)
 	}
 
+	fmt.Println("END /construction/combine")
 	return &types.ConstructionCombineResponse{
 		SignedTransaction: base58.Encode(signedTx),
 	}, nil
@@ -387,6 +418,7 @@ func (s *ConstructionAPIService) ConstructionHash(
 	ctx context.Context,
 	request *types.ConstructionHashRequest,
 ) (*types.TransactionIdentifierResponse, *types.Error) {
+	fmt.Println("START /construction/hash")
 
 	tx, err := solanago.GetTxFromStr(request.SignedTransaction)
 	if err != nil {
@@ -394,6 +426,8 @@ func (s *ConstructionAPIService) ConstructionHash(
 	}
 	hash := tx.Signatures[0].ToBase58()
 
+	fmt.Printf("hash=%s\n", hash)
+	fmt.Println("END /construction/hash")
 	return &types.TransactionIdentifierResponse{
 		TransactionIdentifier: &types.TransactionIdentifier{
 			Hash: hash,
@@ -438,6 +472,15 @@ func (s *ConstructionAPIService) ConstructionSubmit(
 	ctx context.Context,
 	request *types.ConstructionSubmitRequest,
 ) (*types.TransactionIdentifierResponse, *types.Error) {
+
+	version, _ := s.client.Rpc.GetVersion(ctx)
+	fmt.Printf("s.config.GethURL=%s\n", s.config.GethURL)
+	fmt.Printf("version.FeatureSet=%d\n", version.FeatureSet)
+	fmt.Printf("version.SolanaCore=%s\n", version.SolanaCore)
+	fmt.Printf("s.config.Mode=%v\n", s.config.Mode)
+	fmt.Printf("request.SignedTransaction\n%s\n", request.SignedTransaction)
+
+	fmt.Println("before Rpc.SendTransaction")
 	if s.config.Mode != configuration.Online {
 		return nil, ErrUnavailableOffline
 	}
@@ -449,6 +492,8 @@ func (s *ConstructionAPIService) ConstructionSubmit(
 	if err != nil {
 		return nil, wrapErr(ErrBroadcastFailed, err)
 	}
+	fmt.Println("after Rpc.SendTransaction")
+	fmt.Printf("hash=%s\n", hash)
 
 	txIdentifier := &types.TransactionIdentifier{
 		Hash: hash,

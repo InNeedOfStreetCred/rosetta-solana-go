@@ -56,6 +56,7 @@ type Client interface {
 }
 type ConstructionMetadata struct {
 	BlockHash         string                          `json:"blockhash"`
+	BlockNumber       uint64                          `json:"blockNumber"`
 	FeeCalculator     ss.FeeCalculator                `json:"fee_calculator"`
 	SplTokenAccMapKey map[string]solanago.SplAccounts `json:"spl_token_acc_map"`
 }
