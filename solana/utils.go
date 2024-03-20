@@ -255,6 +255,15 @@ func GetWithNonce(m map[string]interface{}) (WithNonce, bool) {
 	}
 	return withNonce, hasNonce
 }
+
+func GetPriorityFee(m map[string]interface{}) PriorityFee {
+	var priorityFee PriorityFee
+	if w, ok := m[PriorityFeeKey]; ok {
+		j, _ := json.Marshal(w)
+		json.Unmarshal(j, &priorityFee)
+	}
+	return priorityFee
+}
 func GetTxFromStr(t string) (solPTypes.Transaction, error) {
 	signedTx, err := base58.Decode(t)
 	if err != nil {

@@ -2,25 +2,25 @@ package operations
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/coinbase/rosetta-sdk-go/types"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
-	"github.com/near/borsh-go"
 	"github.com/portto/solana-go-sdk/common"
 	"github.com/portto/solana-go-sdk/sysprog"
 	solPTypes "github.com/portto/solana-go-sdk/types"
+	"log"
 )
 
 type SystemOperationMetadata struct {
-	Source       string `json:"source,omitempty"`
-	Destination  string `json:"destination,omitempty"`
-	Space        uint64 `json:"space,omitempty"`
-	Lamports     uint64 `json:"lamports,omitempty"`
-	NewAuthority string `json:"new_authority,omitempty"`
-	Authority    string `json:"authority,omitempty"`
+	Source                 string `json:"source,omitempty"`
+	Destination            string `json:"destination,omitempty"`
+	Space                  uint64 `json:"space,omitempty"`
+	Lamports               uint64 `json:"lamports,omitempty"`
+	NewAuthority           string `json:"new_authority,omitempty"`
+	Authority              string `json:"authority,omitempty"`
+	MicroLamportsUnitPrice uint64 `json:"micro_lamports_unit_price,omitempty"`
 }
 
-func (x *SystemOperationMetadata) SetMeta(op *types.Operation) {
+func (x *SystemOperationMetadata) SetMeta(op *types.Operation, fee solanago.PriorityFee) {
 	jsonString, _ := json.Marshal(op.Metadata)
 	json.Unmarshal(jsonString, &x)
 	if x.Lamports == 0 {
@@ -32,31 +32,34 @@ func (x *SystemOperationMetadata) SetMeta(op *types.Operation) {
 	if x.Authority == "" {
 		x.Authority = x.Source
 	}
+	if fee.MicroLamports != "" {
+		x.MicroLamportsUnitPrice = solanago.ValueToBaseAmount(fee.MicroLamports)
+	}
+	log.Printf("microLamportsUnitPrice=%v", x.MicroLamportsUnitPrice)
 }
 func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Instruction {
-	fmt.Println("START ToInstructions")
-	fmt.Println("opType", opType)
-
-	microLamportsUnitPrice := 20000000
+	log.Printf("START ToInstructions")
+	log.Printf("opType=%v", opType)
 
 	var ins []solPTypes.Instruction
+	ins = AddSetComputeUnitPriceParam(x.MicroLamportsUnitPrice, ins)
 	switch opType {
 	case solanago.System__CreateAccount:
+		log.Printf("System__CreateAccount adding CreateAccount")
 		ins = append(ins, sysprog.CreateAccount(p(x.Source), p(x.Destination), common.TokenProgramID, x.Lamports, x.Space))
 		break
 	case solanago.System__Assign:
 		ins = append(ins, sysprog.Assign(p(x.Source), common.TokenProgramID))
 		break
 	case solanago.System__Transfer:
-		fmt.Println("System__Transfer adding SetComputeUnitPriceParam", microLamportsUnitPrice)
-		ins = append(ins, SetComputeUnitPrice(SetComputeUnitPriceParam{MicroLamports: uint64(microLamportsUnitPrice)}))
-		fmt.Println("System__Transfer adding transfer")
+
+		log.Printf("System__Transfer adding transfer")
 		ins = append(ins, sysprog.Transfer(p(x.Source), p(x.Destination), x.Lamports))
 		break
 	case solanago.System__CreateNonceAccount:
-		fmt.Println("System__CreateNonceAccount adding SetComputeUnitPriceParam", microLamportsUnitPrice)
-		ins = append(ins, SetComputeUnitPrice(SetComputeUnitPriceParam{MicroLamports: uint64(microLamportsUnitPrice)}))
+		log.Printf("System__CreateNonceAccount adding CreateAccount")
 		ins = append(ins, sysprog.CreateAccount(p(x.Source), p(x.Destination), common.SystemProgramID, x.Lamports, sysprog.NonceAccountSize))
+		log.Printf("System__CreateNonceAccount adding InitializeNonceAccount")
 		ins = append(ins, solPTypes.Instruction{
 			Accounts: []solPTypes.AccountMeta{
 				{PubKey: p(x.Destination), IsSigner: false, IsWritable: true},
@@ -69,7 +72,7 @@ func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Inst
 
 		break
 	case solanago.System__AdvanceNonce:
-		fmt.Println("System__AdvanceNonce")
+		log.Printf("System__AdvanceNonce adding AdvanceNonceAccount")
 		ins = append(ins, sysprog.AdvanceNonceAccount(p(x.Destination), p(x.Authority)))
 		break
 	case solanago.System__WithdrawFromNonce:
@@ -82,67 +85,18 @@ func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Inst
 		ins = append(ins, sysprog.Allocate(p(x.Source), x.Space))
 		break
 	}
-	for in := range ins {
-		fmt.Println("ins", ins[in])
+	log.Printf("There are %v instructions", len(ins))
+	for i, in := range ins {
+		log.Printf("instruction with i=%v", i)
+		log.Printf("in.ProgramID=%v", in.ProgramID.ToBase58())
+		if (in.Accounts != nil) && (len(in.Accounts) > 0) {
+			for _, account := range in.Accounts {
+				log.Printf("account.PubKey=%v, IsSigner=%v, IsWritable=%v", account.PubKey.ToBase58(), account.IsSigner, account.IsWritable)
+			}
+		}
+		log.Printf("in.Data=%v", in.Data)
 	}
 
-	fmt.Println("END ToInstructions")
+	log.Printf("END ToInstructions")
 	return ins
-}
-
-type SetComputeUnitLimitParam struct {
-	Units uint32
-}
-
-type Instruction borsh.Enum
-
-const (
-	InstructionRequestUnits Instruction = iota
-	InstructionRequestHeapFrame
-	InstructionSetComputeUnitLimit
-	InstructionSetComputeUnitPrice
-)
-
-func SetComputeUnitLimit(param SetComputeUnitLimitParam) solPTypes.Instruction {
-	data, err := borsh.Serialize(struct {
-		Instruction Instruction
-		Units       uint32
-	}{
-		Instruction: InstructionSetComputeUnitLimit,
-		Units:       param.Units,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return solPTypes.Instruction{
-		ProgramID: common.PublicKeyFromString("ComputeBudget111111111111111111111111111111"),
-		Accounts:  []solPTypes.AccountMeta{},
-		Data:      data,
-	}
-}
-
-type SetComputeUnitPriceParam struct {
-	MicroLamports uint64
-}
-
-// SetComputeUnitPrice set a compute unit price in "micro-lamports" to pay a higher transaction
-// fee for higher transaction prioritization.
-func SetComputeUnitPrice(param SetComputeUnitPriceParam) solPTypes.Instruction {
-	data, err := borsh.Serialize(struct {
-		Instruction   Instruction
-		MicroLamports uint64
-	}{
-		Instruction:   InstructionSetComputeUnitPrice,
-		MicroLamports: param.MicroLamports,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return solPTypes.Instruction{
-		ProgramID: common.PublicKeyFromString("ComputeBudget111111111111111111111111111111"),
-		Accounts:  []solPTypes.AccountMeta{},
-		Data:      data,
-	}
 }

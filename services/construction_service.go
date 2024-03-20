@@ -17,6 +17,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -71,15 +72,22 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 	ctx context.Context,
 	request *types.ConstructionPreprocessRequest,
 ) (*types.ConstructionPreprocessResponse, *types.Error) {
+	log.Printf("START /construction/preprocess")
+	log.Printf("request.Metadata=%+v\n", request.Metadata)
+
 	withNonce, _ := solanago.GetWithNonce(request.Metadata)
-	fmt.Printf("withNonce=%v\n", withNonce)
-	fmt.Printf("request.Operations=%v\n", request.Operations)
+	log.Printf("withNonce=%+v\n", withNonce)
 
-	var matchedOperationHashMap map[int64]bool = make(map[int64]bool)
+	priorityFee := solanago.GetPriorityFee(request.Metadata)
+	log.Printf("priorityFee=%+v\n", priorityFee)
 
-	var SplSystemAccMap map[int64]solanago.SplAccounts = make(map[int64]solanago.SplAccounts)
+	log.Printf("request.Operations=%+v\n", request.Operations)
+
+	var matchedOperationHashMap = make(map[int64]bool)
+
+	var SplSystemAccMap = make(map[int64]solanago.SplAccounts)
 	for _, op := range request.Operations {
-		fmt.Printf("op=%v\n", op)
+		LogOperation(op)
 
 		var cont bool
 		var matched *types.Operation
@@ -97,9 +105,11 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 		}
 	}
 
+	log.Printf("END /construction/preprocess")
 	return &types.ConstructionPreprocessResponse{
 		Options: map[string]interface{}{
 			solanago.WithNonceKey:       withNonce,
+			solanago.PriorityFeeKey:     priorityFee,
 			solanago.SplSystemAccMapKey: SplSystemAccMap,
 		},
 	}, nil
@@ -110,34 +120,41 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 	ctx context.Context,
 	request *types.ConstructionMetadataRequest,
 ) (*types.ConstructionMetadataResponse, *types.Error) {
-	fmt.Println("START /construction/metadata")
+	log.Printf("START /construction/metadata")
 	if s.config.Mode != configuration.Online {
 		return nil, ErrUnavailableOffline
 	}
 
 	var hash string
 	var blockNumber uint64
-	var fee ss.FeeCalculator
+	var feeCalculator ss.FeeCalculator
 	withNonce, hasNonce := solanago.GetWithNonce(request.Options)
-	fmt.Printf("withNonce=%v\n", withNonce)
-	fmt.Printf("hasNonce=%v\n", hasNonce)
+	log.Printf("withNonce=%s\n", withNonce)
+	log.Printf("hasNonce=%t\n", hasNonce)
+
+	priorityFee := solanago.GetPriorityFee(request.Options)
+	log.Printf("priorityFee=%+v\n", priorityFee)
+
 	if hasNonce {
-		fmt.Println("inside hasNonce=true")
-		acc, _ := s.client.Rpc.GetAccountInfoParsed(ctx, withNonce.Account)
-		withNonce.Authority = acc.Data.Nonce.Initialized.Authority
-		hash = acc.Data.Nonce.Initialized.BlockHash
-		fee = acc.Data.Nonce.Initialized.FeeCalculator
+		log.Printf("inside hasNonce=true")
+		acc, _ := s.directClient.GetAccountInfoParsed(ctx, withNonce.Account)
+		//s.client.Rpc.GetAccountInfo(ctx, withNonce.Account)
+		withNonce.Authority = acc.Data.Parsed.Info.Authority
+		hash = acc.Data.Parsed.Info.BlockHash
+		var ssFeeCalculator = acc.Data.Parsed.Info.FeeCalculator
+		feeCalculator = ss.FeeCalculator{LamportsPerSignature: solanago.ValueToBaseAmount(ssFeeCalculator.LamportsPerSignature)}
+		log.Printf("acc=%+v\n", acc)
 	} else {
-		fmt.Println("inside hasNonce=false")
+		log.Printf("inside hasNonce=false")
 		recentBlockhash, _ := s.directClient.GetRecentBlockhash(ctx)
 		hash = recentBlockhash.Value.Blockhash
 		blockNumber = recentBlockhash.Context.Slot
-		fee = recentBlockhash.Value.FeeCalculator
-		fmt.Printf("fee=%d\n", fee)
-		fmt.Printf("blockHash=%d\n", hash)
+		feeCalculator = recentBlockhash.Value.FeeCalculator
+		log.Printf("feeCalculator=%d\n", feeCalculator)
+		log.Printf("blockHash=%s\n", hash)
 	}
 
-	var SplTokenAccMap map[string]solanago.SplAccounts = make(map[string]solanago.SplAccounts)
+	var SplTokenAccMap = make(map[string]solanago.SplAccounts)
 
 	if w, ok := request.Options[solanago.SplSystemAccMapKey]; ok {
 		w1 := w.(map[string]interface{})
@@ -160,18 +177,20 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 	meta, _ := marshalJSONMap(ConstructionMetadata{
 		BlockHash:         hash,
 		BlockNumber:       blockNumber,
-		FeeCalculator:     fee,
+		PriorityFee:       priorityFee,
+		FeeCalculator:     feeCalculator,
 		SplTokenAccMapKey: SplTokenAccMap,
+		WithNonce:         withNonce,
 	})
 
-	fmt.Printf("meta=%v\n", meta)
-	fmt.Println("END /construction/metadata")
+	log.Printf("meta=%+v\n", meta)
+	log.Printf("END /construction/metadata")
 
 	return &types.ConstructionMetadataResponse{
 		Metadata: meta,
 		SuggestedFee: []*types.Amount{
 			{
-				Value:    strconv.FormatInt(int64(fee.LamportsPerSignature), 10),
+				Value:    strconv.FormatInt(int64(feeCalculator.LamportsPerSignature), 10),
 				Currency: solanago.Currency,
 			},
 		},
@@ -217,7 +236,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	ctx context.Context,
 	request *types.ConstructionPayloadsRequest,
 ) (*types.ConstructionPayloadsResponse, *types.Error) {
-	fmt.Println("START /construction/payloads")
+	log.Printf("START /construction/payloads")
 	var instructions []solPTypes.Instruction
 
 	// Convert map to Metadata struct
@@ -227,14 +246,17 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 	}
 
+	log.Printf("meta=%+v\n", meta)
+
 	var feePayer common.PublicKey
-	var matchedOperationHashMap map[int64]bool = make(map[int64]bool)
+	var matchedOperationHashMap = make(map[int64]bool)
 	for _, op := range request.Operations {
-		fmt.Printf("op=%v\n", op)
+		LogOperation(op)
 		var cont bool
 		var matched *types.Operation
 		cont, matched = FindMatch(request.Operations, op, matchedOperationHashMap)
 		if cont {
+			log.Printf("op is alread in matchedOperationHashMap -> continue with next entry")
 			continue
 		}
 
@@ -270,28 +292,27 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 			matchedOperationHashMap[op.OperationIdentifier.Index] = true
 		}
 
-		fmt.Printf("tmpOP.Type=%s\n", tmpOP.Type)
+		log.Printf("tmpOP.Type=%s\n", tmpOP.Type)
 		switch strings.Split(tmpOP.Type, solanago.Separator)[0] {
 		case "System":
 			s := operations.SystemOperationMetadata{}
-			s.SetMeta(tmpOP)
-			instructions = append(instructions, (s.ToInstructions(tmpOP.Type))...)
-
+			s.SetMeta(tmpOP, meta.PriorityFee)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
 			break
 		case "SplToken":
 			s := operations.SplTokenOperationMetadata{}
 			s.SetMeta(tmpOP, meta.SplTokenAccMapKey)
-			instructions = append(instructions, (s.ToInstructions(tmpOP.Type))...)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
 			break
 		case "SplAssociatedTokenAccount":
 			s := operations.SplAssociatedTokenAccountOperationMetadata{}
 			s.SetMeta(tmpOP)
-			instructions = append(instructions, (s.ToInstructions(tmpOP.Type))...)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
 			break
 		case "Stake":
 			s := operations.StakeOperationMetadata{}
-			s.SetMeta(tmpOP)
-			instructions = append(instructions, (s.ToInstructions(tmpOP.Type))...)
+			s.SetMeta(tmpOP, meta.PriorityFee)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
 			if tmpOP.Type == solanago.Stake__WithdrawStake && s.FeePayer != "" {
 				feePayer = common.PublicKeyFromString(s.FeePayer)
 			}
@@ -331,7 +352,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	msgBytes, _ := tx.Message.Serialize()
 	var signingPayloads []*types.SigningPayload
 	for _, sg := range signers {
-		fmt.Println("sg=", sg)
+		log.Printf("sg=%+v", sg)
 		signingPayloads = append(signingPayloads, &types.SigningPayload{
 			AccountIdentifier: &types.AccountIdentifier{
 				Address: sg,
@@ -347,7 +368,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 	}
 
-	fmt.Println("END /construction/payloads")
+	log.Printf("END /construction/payloads")
 	return &types.ConstructionPayloadsResponse{
 		UnsignedTransaction: base58.Encode(txUnsigned),
 		Payloads:            signingPayloads,
@@ -383,7 +404,7 @@ func (s *ConstructionAPIService) ConstructionCombine(
 	ctx context.Context,
 	request *types.ConstructionCombineRequest,
 ) (*types.ConstructionCombineResponse, *types.Error) {
-	fmt.Println("START /construction/combine")
+	log.Printf("START /construction/combine")
 
 	tx, err := solanago.GetTxFromStr(request.UnsignedTransaction)
 	if err != nil {
@@ -398,16 +419,16 @@ func (s *ConstructionAPIService) ConstructionCombine(
 		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 	}
 	for i, p := range positions {
-		fmt.Println("p=", p, "i=", i)
+		log.Printf("p=%d, i=%d", p, i)
 		tx.Signatures[p] = request.Signatures[i].Bytes
-		fmt.Println("tx.Signatures[p]=", tx.Signatures[p])
+		log.Printf("tx.Signatures[p]=%s", tx.Signatures[p].ToBase58())
 	}
 	signedTx, err := tx.Serialize()
 	if err != nil {
 		return nil, wrapErr(ErrSignatureInvalid, err)
 	}
 
-	fmt.Println("END /construction/combine")
+	log.Printf("END /construction/combine")
 	return &types.ConstructionCombineResponse{
 		SignedTransaction: base58.Encode(signedTx),
 	}, nil
@@ -418,7 +439,7 @@ func (s *ConstructionAPIService) ConstructionHash(
 	ctx context.Context,
 	request *types.ConstructionHashRequest,
 ) (*types.TransactionIdentifierResponse, *types.Error) {
-	fmt.Println("START /construction/hash")
+	log.Printf("START /construction/hash")
 
 	tx, err := solanago.GetTxFromStr(request.SignedTransaction)
 	if err != nil {
@@ -426,8 +447,8 @@ func (s *ConstructionAPIService) ConstructionHash(
 	}
 	hash := tx.Signatures[0].ToBase58()
 
-	fmt.Printf("hash=%s\n", hash)
-	fmt.Println("END /construction/hash")
+	log.Printf("hash=%s\n", hash)
+	log.Printf("END /construction/hash")
 	return &types.TransactionIdentifierResponse{
 		TransactionIdentifier: &types.TransactionIdentifier{
 			Hash: hash,
@@ -472,15 +493,16 @@ func (s *ConstructionAPIService) ConstructionSubmit(
 	ctx context.Context,
 	request *types.ConstructionSubmitRequest,
 ) (*types.TransactionIdentifierResponse, *types.Error) {
+	log.Printf("START /construction/submit")
 
 	version, _ := s.client.Rpc.GetVersion(ctx)
-	fmt.Printf("s.config.GethURL=%s\n", s.config.GethURL)
-	fmt.Printf("version.FeatureSet=%d\n", version.FeatureSet)
-	fmt.Printf("version.SolanaCore=%s\n", version.SolanaCore)
-	fmt.Printf("s.config.Mode=%v\n", s.config.Mode)
-	fmt.Printf("request.SignedTransaction\n%s\n", request.SignedTransaction)
+	log.Printf("s.config.GethURL=%s\n", s.config.GethURL)
+	log.Printf("s.config.Mode=%v\n", s.config.Mode)
+	log.Printf("version.FeatureSet=%d\n", version.FeatureSet)
+	log.Printf("version.SolanaCore=%s\n", version.SolanaCore)
+	log.Printf("request.SignedTransaction\n%s\n", request.SignedTransaction)
 
-	fmt.Println("before Rpc.SendTransaction")
+	log.Printf("before Rpc.SendTransaction")
 	if s.config.Mode != configuration.Online {
 		return nil, ErrUnavailableOffline
 	}
@@ -492,13 +514,29 @@ func (s *ConstructionAPIService) ConstructionSubmit(
 	if err != nil {
 		return nil, wrapErr(ErrBroadcastFailed, err)
 	}
-	fmt.Println("after Rpc.SendTransaction")
-	fmt.Printf("hash=%s\n", hash)
+	log.Printf("after Rpc.SendTransaction")
+	log.Printf("hash=%s\n", hash)
 
 	txIdentifier := &types.TransactionIdentifier{
 		Hash: hash,
 	}
+
+	log.Printf("END /construction/submit")
 	return &types.TransactionIdentifierResponse{
 		TransactionIdentifier: txIdentifier,
 	}, nil
+}
+
+func LogOperation(op *types.Operation) {
+	log.Printf("op=%+v\n", op)
+	log.Printf("op.Type=%v\n", op.Type)
+	if op.Account != nil {
+		log.Printf("op.Account.Address=%s\n", op.Account.Address)
+	}
+	if op.Amount != nil {
+		log.Printf("op.Amount.Value=%s\n", op.Amount.Value)
+	}
+	if op.Metadata != nil {
+		log.Printf("op.Metadata=%s\n", op.Metadata)
+	}
 }

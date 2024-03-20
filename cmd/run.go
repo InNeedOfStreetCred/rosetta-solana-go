@@ -57,6 +57,8 @@ var (
 )
 
 func runRunCmd(cmd *cobra.Command, args []string) error {
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
+
 	cfg, err := configuration.LoadConfiguration()
 	if err != nil {
 		return fmt.Errorf("%w: unable to load configuration", err)

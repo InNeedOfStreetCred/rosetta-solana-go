@@ -120,3 +120,45 @@ func (s *DirectClient) GetRecentBlockhash(ctx context.Context) (GetRecentBlockHa
 	}
 	return result, nil
 }
+
+type GetAccountInfoParsedResponse struct {
+	Lamports  uint64  `json:"lamports"`
+	Owner     string  `json:"owner"`
+	Excutable bool    `json:"excutable"`
+	RentEpoch uint64  `json:"rentEpoch"`
+	Data      AccData `json:"data"`
+}
+
+type Info struct {
+	Authority     string        `json:"authority"`
+	BlockHash     string        `json:"blockhash"`
+	FeeCalculator FeeCalculator `json:"feeCalculator"`
+}
+type Parsed struct {
+	Info Info `json:"info"`
+}
+type AccData struct {
+	Parsed Parsed `json:"parsed"`
+}
+
+type FeeCalculator struct {
+	LamportsPerSignature string `json:"lamportsPerSignature"`
+}
+
+func (s *DirectClient) GetAccountInfoParsed(ctx context.Context, account string) (GetAccountInfoParsedResponse, error) {
+	res := struct {
+		GeneralResponse
+		Result struct {
+			Context Context                      `json:"context"`
+			Value   GetAccountInfoParsedResponse `json:"value"`
+		} `json:"result"`
+	}{}
+	err := s.request(ctx, "getAccountInfo", []interface{}{account, map[string]interface{}{"encoding": "jsonParsed"}}, &res)
+	if err != nil {
+		return GetAccountInfoParsedResponse{}, err
+	}
+	if res.Error != (ErrorResponse{}) {
+		return GetAccountInfoParsedResponse{}, errors.New(res.Error.Message)
+	}
+	return res.Result.Value, nil
+}

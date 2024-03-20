@@ -8,6 +8,7 @@ import (
 	"github.com/portto/solana-go-sdk/stakeprog"
 	"github.com/portto/solana-go-sdk/sysprog"
 	solPTypes "github.com/portto/solana-go-sdk/types"
+	"log"
 )
 
 type StakeOperationMetadata struct {
@@ -27,9 +28,10 @@ type StakeOperationMetadata struct {
 	NewAuthority           string `json:"newAuthority,omitempty"`
 	StakeAuthorizationType uint32 `json:"stakeAuthorizationType,omitempty"`
 	FeePayer               string `json:"feePayer,omitempty"`
+	MicroLamportsUnitPrice uint64 `json:"micro_lamports_unit_price,omitempty"`
 }
 
-func (x *StakeOperationMetadata) SetMeta(op *types.Operation) {
+func (x *StakeOperationMetadata) SetMeta(op *types.Operation, fee solanago.PriorityFee) {
 	jsonString, _ := json.Marshal(op.Metadata)
 	json.Unmarshal(jsonString, &x)
 	if x.Lamports == 0 && op.Amount != nil {
@@ -44,10 +46,15 @@ func (x *StakeOperationMetadata) SetMeta(op *types.Operation) {
 	if x.Withdrawer == "" && op.Account != nil {
 		x.Withdrawer = op.Account.Address
 	}
+	if fee.MicroLamports != "" {
+		x.MicroLamportsUnitPrice = solanago.ValueToBaseAmount(fee.MicroLamports)
+	}
+	log.Printf("microLamportsUnitPrice=%v", x.MicroLamportsUnitPrice)
 }
 func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instruction {
 
 	var ins []solPTypes.Instruction
+	ins = AddSetComputeUnitPriceParam(x.MicroLamportsUnitPrice, ins)
 	switch opType {
 	case solanago.Stake__CreateStakeAccount:
 		ins = addCreateStakeAccountIns(ins, x)
