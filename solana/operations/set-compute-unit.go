@@ -8,9 +8,12 @@ import (
 )
 
 func AddSetComputeUnitPriceParam(microLamportsUnitPrice uint64, ins []solPTypes.Instruction) []solPTypes.Instruction {
-	log.Printf("System__Transfer adding SetComputeUnitPriceParam=%v", microLamportsUnitPrice)
+
 	if microLamportsUnitPrice > 0 {
+		log.Printf("Adding SetComputeUnitPriceParam=%v", microLamportsUnitPrice)
 		ins = append(ins, SetComputeUnitPrice(SetComputeUnitPriceParam{MicroLamports: microLamportsUnitPrice}))
+	} else {
+		log.Printf("skipping SetComputeUnitPriceParam as fee is 0")
 	}
 	return ins
 }

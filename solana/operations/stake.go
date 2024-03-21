@@ -52,6 +52,8 @@ func (x *StakeOperationMetadata) SetMeta(op *types.Operation, fee solanago.Prior
 	log.Printf("microLamportsUnitPrice=%v", x.MicroLamportsUnitPrice)
 }
 func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instruction {
+	log.Printf("START ToInstructions")
+	log.Printf("opType=%v", opType)
 
 	var ins []solPTypes.Instruction
 	ins = AddSetComputeUnitPriceParam(x.MicroLamportsUnitPrice, ins)
@@ -104,6 +106,19 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 		break
 	}
 
+	log.Printf("There are %v instructions", len(ins))
+	for i, in := range ins {
+		log.Printf("instruction with i=%v", i)
+		log.Printf("in.ProgramID=%v", in.ProgramID.ToBase58())
+		if (in.Accounts != nil) && (len(in.Accounts) > 0) {
+			for _, account := range in.Accounts {
+				log.Printf("account.PubKey=%v, IsSigner=%v, IsWritable=%v", account.PubKey.ToBase58(), account.IsSigner, account.IsWritable)
+			}
+		}
+		log.Printf("in.Data=%v", in.Data)
+	}
+
+	log.Printf("END ToInstructions")
 	return ins
 }
 
