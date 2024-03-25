@@ -55,9 +55,12 @@ type Client interface {
 	) (*types.CallResponse, error)
 }
 type ConstructionMetadata struct {
-	BlockHash         string                          `json:"blockhash"`
+	BlockHash         string                          `json:"blockhash,omitempty"`
+	BlockNumber       uint64                          `json:"blockNumber"`
+	PriorityFee       solanago.PriorityFee            `json:"priority_fee"`
 	FeeCalculator     ss.FeeCalculator                `json:"fee_calculator"`
 	SplTokenAccMapKey map[string]solanago.SplAccounts `json:"spl_token_acc_map"`
+	WithNonce         solanago.WithNonce              `json:"with_nonce"`
 }
 
 type MetadataWithFee struct {

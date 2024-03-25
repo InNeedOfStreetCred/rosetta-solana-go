@@ -8,7 +8,8 @@ require (
 	github.com/iancoleman/strcase v0.3.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mr-tron/base58 v1.2.0
-	github.com/portto/solana-go-sdk v1.26.0
+	github.com/near/borsh-go v0.3.1-0.20210831082424-4377deff6791
+	github.com/portto/solana-go-sdk v1.27.0
 	github.com/spf13/cobra v1.8.0
 	github.com/streamingfast/binary v0.0.0-20210928223119-44fc44e4a0b5
 	github.com/streamingfast/logging v0.0.0-20211221170249-09a6ecb200a0 // indirect

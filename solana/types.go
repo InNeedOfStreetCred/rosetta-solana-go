@@ -66,6 +66,7 @@ const (
 
 	Separator          = "__"
 	WithNonceKey       = "with_nonce"
+	PriorityFeeKey     = "priority_fee"
 	SplSystemAccMapKey = "spl_system_acc_map"
 	SplTokenAccMapKey  = "spl_token_acc_map"
 
@@ -236,6 +237,10 @@ type GetConfirmedBlockResult struct {
 type WithNonce struct {
 	Account   string `json:"account"`
 	Authority string `json:"authority,omitempty"`
+}
+
+type PriorityFee struct {
+	MicroLamports string `json:"microLamports"`
 }
 
 type SplAccounts struct {
