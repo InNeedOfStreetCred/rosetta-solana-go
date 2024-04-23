@@ -156,23 +156,23 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 
 	var SplTokenAccMap = make(map[string]solanago.SplAccounts)
 
-	//if w, ok := request.Options[solanago.SplSystemAccMapKey]; ok {
-	//	w1 := w.(map[string]interface{})
-	//	if err := unmarshalJSONMap(w1, &SplTokenAccMap); err != nil {
-	//		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
-	//	}
-	//
-	//	for k, v := range SplTokenAccMap {
-	//
-	//		source, _ := s.client.GetTokenAccountByMint(ctx, v.Source, v.Mint)
-	//		destination, _ := s.client.GetTokenAccountByMint(ctx, v.Destination, v.Mint)
-	//		SplTokenAccMap[k] = solanago.SplAccounts{
-	//			Source:      source,
-	//			Destination: destination,
-	//			Mint:        v.Mint,
-	//		}
-	//	}
-	//}
+	if w, ok := request.Options[solanago.SplSystemAccMapKey]; ok {
+		w1 := w.(map[string]interface{})
+		if err := unmarshalJSONMap(w1, &SplTokenAccMap); err != nil {
+			return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
+		}
+
+		for k, v := range SplTokenAccMap {
+
+			source, _ := s.directClient.GetTokenAccountsByOwner(ctx, v.Source)
+			destination, _ := s.directClient.GetTokenAccountByMint(ctx, v.Destination, v.Mint)
+			SplTokenAccMap[k] = solanago.SplAccounts{
+				Source:      source,
+				Destination: destination,
+				Mint:        v.Mint,
+			}
+		}
+	}
 
 	meta, _ := marshalJSONMap(ConstructionMetadata{
 		BlockHash:         hash,
@@ -300,16 +300,16 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 			s.SetMeta(tmpOP, meta.PriorityFee)
 			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
 			break
-		//case "SplToken":
-		//	s := operations.SplTokenOperationMetadata{}
-		//	s.SetMeta(tmpOP, meta.SplTokenAccMapKey)
-		//	instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
-		//	break
-		//case "SplAssociatedTokenAccount":
-		//	s := operations.SplAssociatedTokenAccountOperationMetadata{}
-		//	s.SetMeta(tmpOP)
-		//	instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
-		//	break
+		case "SplToken":
+			s := operations.SplTokenOperationMetadata{}
+			s.SetMeta(tmpOP, meta.SplTokenAccMapKey)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
+			break
+		case "SplAssociatedTokenAccount":
+			s := operations.SplAssociatedTokenAccountOperationMetadata{}
+			s.SetMeta(tmpOP)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
+			break
 		case "Stake":
 			s := operations.StakeOperationMetadata{}
 			s.SetMeta(tmpOP, meta.PriorityFee)

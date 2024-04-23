@@ -2,6 +2,10 @@ package operations
 
 import (
 	"encoding/json"
+	"github.com/blocto/solana-go-sdk/common"
+	token "github.com/blocto/solana-go-sdk/program/associated_token_account"
+	solPTypes "github.com/blocto/solana-go-sdk/types"
+	solanago "github.com/imerkle/rosetta-solana-go/solana"
 
 	"github.com/coinbase/rosetta-sdk-go/types"
 )
@@ -20,12 +24,13 @@ func (x *SplAssociatedTokenAccountOperationMetadata) SetMeta(op *types.Operation
 	json.Unmarshal(jsonString, &x)
 }
 
-//func (x *SplAssociatedTokenAccountOperationMetadata) ToInstructions(opType string) []solPTypes.Instruction {
-//	var ins []solPTypes.Instruction
-//	switch opType {
-//	case solanago.SplAssociatedTokenAccount__Create:
-//		ins = append(ins, assotokenprog.Create(p(x.Source), p(x.Wallet), p(x.Mint)))
-//		break
-//	}
-//	return ins
-//}
+func (x *SplAssociatedTokenAccountOperationMetadata) ToInstructions(opType string) []solPTypes.Instruction {
+	assosiatedAccount, _, _ := common.FindAssociatedTokenAddress(p(x.Wallet), p(x.Mint))
+	var ins []solPTypes.Instruction
+	switch opType {
+	case solanago.SplAssociatedTokenAccount__Create:
+		ins = append(ins, token.Create(token.CreateParam{Funder: p(x.Source), Owner: p(x.Wallet), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount}))
+		break
+	}
+	return ins
+}

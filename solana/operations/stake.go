@@ -128,9 +128,8 @@ func addCreateStakeAccountIns(ins []solPTypes.Instruction, x *StakeOperationMeta
 	ins = append(ins,
 		system.CreateAccount(
 			system.CreateAccountParam{
-				From: p(x.Source),
-				New:  p(x.Stake),
-				//common.StakeProgramID,
+				From:     p(x.Source),
+				New:      p(x.Stake),
 				Lamports: x.Lamports,
 				Space:    stakeprog.AccountSize}))
 	ins = append(ins,

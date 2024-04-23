@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/blocto/solana-go-sdk/common"
 	solPTypes "github.com/blocto/solana-go-sdk/types"
 	"io/ioutil"
 	"net/http"
@@ -250,6 +251,41 @@ type GetConfirmedTransactionParsedResponse struct {
 	Transaction ParsedTransaction `json:"transaction"`
 }
 
+type TokenAmount struct {
+	Amount         string  `json:"amount"`
+	Decimals       int32   `json:"decimals"`
+	UIAmount       float64 `json:"uiAmount"`
+	UIAmountString string  `json:"uiAmountString"`
+}
+type ParsedAccountInfo struct {
+	Delegate        string      `json:"delegate"`
+	DelegatedAmount TokenAmount `json:"delegatedAmount,omitempty"`
+	IsInitialized   bool        `json:"isInitialized"`
+	IsNative        bool        `json:"isNative"`
+	Mint            string      `json:"mint"`
+	Owner           string      `json:"owner"`
+	TokenAmount     TokenAmount `json:"tokenAmount"`
+}
+type ParsedAccountData struct {
+	AccountType string            `json:"accountType"`
+	Info        ParsedAccountInfo `json:"info"`
+}
+type Data struct {
+	Parsed  ParsedAccountData `json:"parsed"`
+	Program string            `json:"program"`
+}
+type Account struct {
+	Data       Data   `json:"data"`
+	Executable bool   `json:"executable"`
+	Lamports   int64  `json:"lamports"`
+	Owner      string `json:"owner"`
+	RentEpoch  int64  `json:"rentEpoch"`
+}
+type Accounts struct {
+	Account Account `json:"account"`
+	Pubkey  string  `json:"pubkey,omitempty"`
+}
+
 func (s *DirectClient) GetAccountInfoParsed(ctx context.Context, account string) (GetAccountInfoParsedResponse, error) {
 	res := struct {
 		GeneralResponse
@@ -290,4 +326,45 @@ func (s *DirectClient) GetConfirmedTransactionParsed(ctx context.Context, txhash
 		return GetConfirmedTransactionParsedResponse{}, err
 	}
 	return res.Result, nil
+}
+
+func (s *DirectClient) GetTokenAccountsByOwner(ctx context.Context, account string) ([]Accounts, error) {
+	res := struct {
+		GeneralResponse
+		Result struct {
+			Context Context    `json:"context"`
+			Value   []Accounts `json:"value"`
+		} `json:"result"`
+	}{}
+	params := []interface{}{account,
+		map[string]interface{}{"programId": common.TokenProgramID.ToBase58()},
+		map[string]interface{}{
+			"encoding": "jsonParsed",
+		}}
+
+	err := s.request(ctx, "getTokenAccountsByOwner", params, &res)
+	if err != nil {
+		return []Accounts{}, err
+	}
+	return res.Result.Value, nil
+}
+func (s *DirectClient) GetTokenAccountByMint(ctx context.Context, account string, mint string) ([]Accounts, error) {
+	res := struct {
+		GeneralResponse
+		Result struct {
+			Context Context    `json:"context"`
+			Value   []Accounts `json:"value"`
+		} `json:"result"`
+	}{}
+	params := []interface{}{account,
+		map[string]interface{}{"mint": mint},
+		map[string]interface{}{
+			"encoding": "jsonParsed",
+		}}
+
+	err := s.request(ctx, "getTokenAccountsByOwner", params, &res)
+	if err != nil {
+		return []Accounts{}, err
+	}
+	return res.Result.Value, nil
 }
