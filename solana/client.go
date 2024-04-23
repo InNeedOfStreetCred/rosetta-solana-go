@@ -19,19 +19,20 @@ import (
 	"fmt"
 	"strconv"
 
+	ss "github.com/blocto/solana-go-sdk/client"
 	RosettaTypes "github.com/coinbase/rosetta-sdk-go/types"
-	ss "github.com/portto/solana-go-sdk/client"
 )
 
 type Client struct {
-	Rpc *ss.Client
+	Rpc          *ss.Client
+	directClient *DirectClient
 }
 
 // NewClient creates a Client that from the provided url and params.
 func NewClient(url string) (*Client, error) {
 	rpc := ss.NewClient(url)
-
-	return &Client{Rpc: rpc}, nil
+	directClient := NewDirectClient(url)
+	return &Client{Rpc: rpc, directClient: directClient}, nil
 }
 
 // Close shuts down the RPC client connection.
@@ -50,19 +51,19 @@ func (ec *Client) Status(ctx context.Context) (
 	genesis, _ := ec.Rpc.GetGenesisHash(ctx)
 	index, _ := ec.Rpc.GetFirstAvailableBlock(ctx)
 
-	bhash, _ := ec.Rpc.GetRecentBlockhash(ctx)
+	bhash, _ := ec.Rpc.GetLatestBlockhash(ctx)
 	slot, _ := ec.Rpc.GetSlot(ctx)
 	slotTime, _ := ec.Rpc.GetBlockTime(ctx, uint64(slot))
 	clusterNodes, _ := ec.Rpc.GetClusterNodes(ctx)
 	var peers []*RosettaTypes.Peer
 	for _, k := range clusterNodes {
-		peers = append(peers, &RosettaTypes.Peer{PeerID: k.Pubkey})
+		peers = append(peers, &RosettaTypes.Peer{PeerID: k.Pubkey.String()})
 	}
 	return &RosettaTypes.BlockIdentifier{
 			Hash:  bhash.Blockhash,
 			Index: int64(slot),
 		},
-		convertTime(uint64(slotTime)),
+		convertTime((uint64)(*slotTime)),
 		peers,
 		&RosettaTypes.BlockIdentifier{
 			Hash:  genesis,
@@ -75,7 +76,7 @@ func (ec *Client) BlockTransaction(
 	ctx context.Context,
 	blockTransactionRequest *RosettaTypes.BlockTransactionRequest,
 ) (*RosettaTypes.Transaction, error) {
-	tx, err := ec.Rpc.GetConfirmedTransactionParsed(ctx, blockTransactionRequest.TransactionIdentifier.Hash)
+	tx, err := ec.directClient.GetConfirmedTransactionParsed(ctx, blockTransactionRequest.TransactionIdentifier.Hash)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func (ec *Client) Block(
 ) (*RosettaTypes.Block, error) {
 	if blockIdentifier != nil {
 		if blockIdentifier.Index != nil {
-			blockResponse, err := ec.Rpc.GetConfirmedBlockParsed(ctx, uint64(*blockIdentifier.Index))
+			blockResponse, err := ec.directClient.GetConfirmedBlockParsed(ctx, uint64(*blockIdentifier.Index))
 			if err != nil {
 				return nil, err
 			}
@@ -189,7 +190,7 @@ func (ec *Client) Call(
 		x = []interface{}{}
 	}
 
-	out, err := ec.Rpc.CallRequest(ctx, request.Method, x)
+	out, err := ec.directClient.CallRequest(ctx, request.Method, x)
 
 	if err != nil {
 		return nil, fmt.Errorf("rpc call error")
@@ -208,10 +209,10 @@ func (ec *Client) Call(
 
 }
 
-func (ec *Client) GetTokenAccountByMint(ctx context.Context, owner string, mint string) (string, error) {
-	tokenAccs, err := ec.Rpc.GetTokenAccountByMint(ctx, owner, mint)
-	if err != nil || len(tokenAccs) == 0 {
-		return "", fmt.Errorf("No Token Account Found")
-	}
-	return tokenAccs[0].Pubkey, nil
-}
+//func (ec *Client) GetTokenAccountByMint(ctx context.Context, owner string, mint string) (string, error) {
+//	tokenAccs, err := ec.Rpc.GetTokenAccountByMint(ctx, owner, mint)
+//	if err != nil || len(tokenAccs) == 0 {
+//		return "", fmt.Errorf("No Token Account Found")
+//	}
+//	return tokenAccs[0].Pubkey, nil
+//}

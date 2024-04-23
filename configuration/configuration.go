@@ -20,9 +20,9 @@ import (
 	"os"
 	"strconv"
 
+	rpc "github.com/blocto/solana-go-sdk/rpc"
 	"github.com/coinbase/rosetta-sdk-go/types"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
-	ss "github.com/portto/solana-go-sdk/client"
 )
 
 // Mode is the setting that determines if
@@ -107,21 +107,21 @@ func LoadConfiguration() (*Configuration, error) {
 			Network:    solanago.MainnetNetwork,
 		}
 		config.GenesisBlockIdentifier = solanago.MainnetGenesisBlockIdentifier
-		config.GethURL = ss.MainnetRPCEndpoint
+		config.GethURL = rpc.MainnetRPCEndpoint
 	case Testnet:
 		config.Network = &types.NetworkIdentifier{
 			Blockchain: solanago.Blockchain,
 			Network:    solanago.TestnetNetwork,
 		}
 		config.GenesisBlockIdentifier = solanago.TestnetGenesisBlockIdentifier
-		config.GethURL = ss.TestnetRPCEndpoint
+		config.GethURL = rpc.TestnetRPCEndpoint
 	case Devnet:
 		config.Network = &types.NetworkIdentifier{
 			Blockchain: solanago.Blockchain,
 			Network:    solanago.DevnetNetwork,
 		}
 		config.GenesisBlockIdentifier = solanago.TestnetGenesisBlockIdentifier
-		config.GethURL = ss.DevnetRPCEndpoint
+		config.GethURL = rpc.DevnetRPCEndpoint
 	case "":
 		return nil, errors.New("NETWORK must be populated")
 	default:

@@ -2,14 +2,14 @@ module github.com/imerkle/rosetta-solana-go
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.14 // indirect
+	github.com/blocto/solana-go-sdk v1.28.0
 	github.com/coinbase/rosetta-sdk-go v0.8.3
 	github.com/coinbase/rosetta-sdk-go/types v1.0.0
 	github.com/fatih/color v1.16.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mr-tron/base58 v1.2.0
-	github.com/near/borsh-go v0.3.1-0.20210831082424-4377deff6791
-	github.com/portto/solana-go-sdk v1.27.0
+	github.com/near/borsh-go v0.3.2-0.20220516180422-1ff87d108454
 	github.com/spf13/cobra v1.8.0
 	github.com/streamingfast/binary v0.0.0-20210928223119-44fc44e4a0b5
 	github.com/streamingfast/logging v0.0.0-20211221170249-09a6ecb200a0 // indirect
@@ -23,10 +23,8 @@ require (
 	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/sync v0.6.0
 	gotest.tools v2.2.0+incompatible
+
+	github.com/ghostiam/binstruct v1.0.1
 )
 
 go 1.15
-
-replace github.com/portto/solana-go-sdk => github.com/imerkle/solana-go-sdk v0.0.10
-
-//replace github.com/portto/solana-go-sdk => ../solana-go-sdk

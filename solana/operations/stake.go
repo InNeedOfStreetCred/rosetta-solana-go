@@ -2,12 +2,12 @@ package operations
 
 import (
 	"encoding/json"
+	"github.com/blocto/solana-go-sdk/program/stake"
+	"github.com/blocto/solana-go-sdk/program/stakeprog"
+	"github.com/blocto/solana-go-sdk/program/system"
+	solPTypes "github.com/blocto/solana-go-sdk/types"
 	types "github.com/coinbase/rosetta-sdk-go/types"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
-	"github.com/portto/solana-go-sdk/common"
-	"github.com/portto/solana-go-sdk/stakeprog"
-	"github.com/portto/solana-go-sdk/sysprog"
-	solPTypes "github.com/portto/solana-go-sdk/types"
 	"log"
 )
 
@@ -69,41 +69,43 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 		ins = addDelegateStakeIns(ins, x)
 		break
 	case solanago.Stake__DeactivateStake:
-		ins = append(ins, stakeprog.Deactivate(p(x.Stake), p(x.Staker)))
+		ins = append(ins, stake.Deactivate(stake.DeactivateParam{Stake: p(x.Stake), Auth: p(x.Staker)}))
 		break
 	case solanago.Stake__WithdrawStake:
+		lockupCustodian := p(x.LockupCustodian)
 		ins = append(ins,
-			stakeprog.Withdraw(
-				p(x.Stake),
-				p(x.Withdrawer),
-				p(x.WithdrawDestination),
-				x.Lamports,
-				p(x.LockupCustodian)))
+			stake.Withdraw(
+				stake.WithdrawParam{
+					Stake:     p(x.Stake),
+					Auth:      p(x.Withdrawer),
+					To:        p(x.WithdrawDestination),
+					Lamports:  x.Lamports,
+					Custodian: &lockupCustodian}))
 		break
-	case solanago.Stake__Merge:
-		ins = append(ins,
-			stakeprog.Merge(
-				p(x.MergeDestination),
-				p(x.Stake),
-				p(x.Staker)))
-		break
-	case solanago.Stake__Split:
-		ins = append(ins,
-			stakeprog.Split(
-				p(x.Stake),
-				p(x.Staker),
-				p(x.SplitDestination),
-				x.Lamports))
-		break
-	case solanago.Stake__Authorize:
-		ins = append(ins,
-			stakeprog.Authorize(
-				p(x.Stake),
-				p(x.Authority),
-				p(x.NewAuthority),
-				stakeprog.StakeAuthorizationType(x.StakeAuthorizationType),
-				p(x.LockupCustodian)))
-		break
+		//case solanago.Stake__Merge:
+		//	ins = append(ins,
+		//		stake.Merge(
+		//			p(x.MergeDestination),
+		//			p(x.Stake),
+		//			p(x.Staker)))
+		//	break
+		//case solanago.Stake__Split:
+		//	ins = append(ins,
+		//		stake.Split(
+		//			p(x.Stake),
+		//			p(x.Staker),
+		//			p(x.SplitDestination),
+		//			x.Lamports))
+		//	break
+		//case solanago.Stake__Authorize:
+		//	ins = append(ins,
+		//		stake.Authorize(
+		//			p(x.Stake),
+		//			p(x.Authority),
+		//			p(x.NewAuthority),
+		//			stakeprog.StakeAuthorizationType(x.StakeAuthorizationType),
+		//			p(x.LockupCustodian)))
+		//	break
 	}
 
 	log.Printf("There are %v instructions", len(ins))
@@ -124,27 +126,30 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 
 func addCreateStakeAccountIns(ins []solPTypes.Instruction, x *StakeOperationMetadata) []solPTypes.Instruction {
 	ins = append(ins,
-		sysprog.CreateAccount(
-			p(x.Source),
-			p(x.Stake),
-			common.StakeProgramID,
-			x.Lamports,
-			stakeprog.AccountSize))
+		system.CreateAccount(
+			system.CreateAccountParam{
+				From: p(x.Source),
+				New:  p(x.Stake),
+				//common.StakeProgramID,
+				Lamports: x.Lamports,
+				Space:    stakeprog.AccountSize}))
 	ins = append(ins,
-		stakeprog.Initialize(
-			p(x.Stake),
-			stakeprog.Authorized{
-				Staker:     p(x.Staker),
-				Withdrawer: p(x.Withdrawer),
-			},
-			stakeprog.Lockup{
-				UnixTimestamp: x.LockupUnixTimestamp,
-				Epoch:         x.LockupEpoch,
-				Cusodian:      p(x.LockupCustodian),
-			}))
+		stake.Initialize(
+			stake.InitializeParam{
+				Stake: p(x.Stake),
+				Auth: stake.Authorized{
+					Staker:     p(x.Staker),
+					Withdrawer: p(x.Withdrawer),
+				},
+				Lockup: stake.Lockup{
+					UnixTimestamp: x.LockupUnixTimestamp,
+					Epoch:         x.LockupEpoch,
+					Cusodian:      p(x.LockupCustodian),
+				}}),
+	)
 	return ins
 }
 
 func addDelegateStakeIns(ins []solPTypes.Instruction, x *StakeOperationMetadata) []solPTypes.Instruction {
-	return append(ins, stakeprog.DelegateStake(p(x.Stake), p(x.Staker), p(x.VoteAccount)))
+	return append(ins, stake.DelegateStake(stake.DelegateStakeParam{Stake: p(x.Stake), Auth: p(x.Staker), Vote: p(x.VoteAccount)}))
 }
