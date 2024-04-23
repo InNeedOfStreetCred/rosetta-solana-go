@@ -99,28 +99,6 @@ type GetRecentBlockHashResponse struct {
 	Value   GetRecentBlockHashResponseValue `json:"value"`
 }
 
-func (s *DirectClient) GetRecentBlockhash(ctx context.Context) (GetRecentBlockHashResponse, error) {
-	var res = struct {
-		GeneralResponse
-		Result struct {
-			Context Context                         `json:"context"`
-			Value   GetRecentBlockHashResponseValue `json:"value"`
-		} `json:"result"`
-	}{}
-	err := s.request(ctx, "getRecentBlockhash", []interface{}{}, &res)
-	if err != nil {
-		return GetRecentBlockHashResponse{}, err
-	}
-	if res.Error != (ErrorResponse{}) {
-		return GetRecentBlockHashResponse{}, errors.New(res.Error.Message)
-	}
-	result := GetRecentBlockHashResponse{
-		Context: res.Result.Context,
-		Value:   res.Result.Value,
-	}
-	return result, nil
-}
-
 type GetAccountInfoParsedResponse struct {
 	Lamports  uint64  `json:"lamports"`
 	Owner     string  `json:"owner"`
@@ -283,6 +261,28 @@ type Account struct {
 type Accounts struct {
 	Account Account `json:"account"`
 	Pubkey  string  `json:"pubkey,omitempty"`
+}
+
+func (s *DirectClient) GetRecentBlockhash(ctx context.Context) (GetRecentBlockHashResponse, error) {
+	var res = struct {
+		GeneralResponse
+		Result struct {
+			Context Context                         `json:"context"`
+			Value   GetRecentBlockHashResponseValue `json:"value"`
+		} `json:"result"`
+	}{}
+	err := s.request(ctx, "getRecentBlockhash", []interface{}{}, &res)
+	if err != nil {
+		return GetRecentBlockHashResponse{}, err
+	}
+	if res.Error != (ErrorResponse{}) {
+		return GetRecentBlockHashResponse{}, errors.New(res.Error.Message)
+	}
+	result := GetRecentBlockHashResponse{
+		Context: res.Result.Context,
+		Value:   res.Result.Value,
+	}
+	return result, nil
 }
 
 func (s *DirectClient) GetAccountInfoParsed(ctx context.Context, account string) (GetAccountInfoParsedResponse, error) {

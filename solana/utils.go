@@ -342,12 +342,12 @@ func ParseInstruction(ins solPTypes.Instruction) (ParsedInstruction, error) {
 	case common.SystemProgramID:
 		parsedInstruction, err = ParseSystem(ins)
 		break
-	//case common.TokenProgramID:
-	//	parsedInstruction, err = tokenprog.ParseToken(ins)
-	//	break
-	//case common.SPLAssociatedTokenAccountProgramID:
-	//	parsedInstruction, err = assotokenprog.ParseAssocToken(ins)
-	//	break
+	case common.TokenProgramID:
+		parsedInstruction, err = ParseToken(ins)
+		break
+	case common.SPLAssociatedTokenAccountProgramID:
+		parsedInstruction, err = ParseAssocToken(ins)
+		break
 	default:
 		return parsedInstruction, fmt.Errorf("Cannot parse instruction")
 	}
