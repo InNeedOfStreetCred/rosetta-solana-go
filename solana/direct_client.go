@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/blocto/solana-go-sdk/common"
 	solPTypes "github.com/blocto/solana-go-sdk/types"
 	"io/ioutil"
 	"net/http"
@@ -328,7 +327,7 @@ func (s *DirectClient) GetConfirmedTransactionParsed(ctx context.Context, txhash
 	return res.Result, nil
 }
 
-func (s *DirectClient) GetTokenAccountsByOwner(ctx context.Context, account string) ([]Accounts, error) {
+func (s *DirectClient) GetTokenAccountsByOwner(ctx context.Context, account string) (string, error) {
 	res := struct {
 		GeneralResponse
 		Result struct {
@@ -337,18 +336,23 @@ func (s *DirectClient) GetTokenAccountsByOwner(ctx context.Context, account stri
 		} `json:"result"`
 	}{}
 	params := []interface{}{account,
-		map[string]interface{}{"programId": common.TokenProgramID.ToBase58()},
+		map[string]interface{}{"programId": TokenProgramID.ToBase58()},
 		map[string]interface{}{
 			"encoding": "jsonParsed",
 		}}
 
 	err := s.request(ctx, "getTokenAccountsByOwner", params, &res)
 	if err != nil {
-		return []Accounts{}, err
+		return "", fmt.Errorf("No Token Account Found")
 	}
-	return res.Result.Value, nil
+	tokenAccounts := res.Result.Value
+	if err != nil || len(tokenAccounts) == 0 {
+		return "", fmt.Errorf("No Token Account Found")
+	}
+	return tokenAccounts[0].Pubkey, nil
 }
-func (s *DirectClient) GetTokenAccountByMint(ctx context.Context, account string, mint string) ([]Accounts, error) {
+
+func (s *DirectClient) GetTokenAccountByMint(ctx context.Context, account string, mint string) (string, error) {
 	res := struct {
 		GeneralResponse
 		Result struct {
@@ -364,7 +368,11 @@ func (s *DirectClient) GetTokenAccountByMint(ctx context.Context, account string
 
 	err := s.request(ctx, "getTokenAccountsByOwner", params, &res)
 	if err != nil {
-		return []Accounts{}, err
+		return "", fmt.Errorf("No Token Account Found")
 	}
-	return res.Result.Value, nil
+	tokenAccounts := res.Result.Value
+	if err != nil || len(tokenAccounts) == 0 {
+		return "", fmt.Errorf("No Token Account Found")
+	}
+	return tokenAccounts[0].Pubkey, nil
 }
