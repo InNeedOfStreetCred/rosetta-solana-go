@@ -17,9 +17,9 @@ type SplAssociatedTokenAccountOperationMetadata struct {
 
 func (x *SplAssociatedTokenAccountOperationMetadata) SetMeta(op *types.Operation) {
 	jsonString, _ := json.Marshal(op.Metadata)
-	//if x.Source == "" {
-	//	x.Source = op.Account.Address
-	//}
+	if x.Source == "" {
+		x.Source = op.Account.Address
+	}
 	json.Unmarshal(jsonString, &x)
 }
 
