@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/blocto/solana-go-sdk/common"
+	"github.com/blocto/solana-go-sdk/program/assotokenprog"
 	"github.com/blocto/solana-go-sdk/program/system"
 	"github.com/blocto/solana-go-sdk/program/token"
 	"github.com/blocto/solana-go-sdk/program/tokenprog"
 	solPTypes "github.com/blocto/solana-go-sdk/types"
 	"github.com/coinbase/rosetta-sdk-go/types"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
+	"log"
 )
 
 type SplTokenOperationMetadata struct {
@@ -88,33 +90,38 @@ func (x *SplTokenOperationMetadata) ToInstructions(opType string) []solPTypes.In
 		//	case solanago.SplToken_FreezeAccount:
 		//		ins = append(ins, tokenprog.ThawAccount(p(x.Source), p(x.Mint), p(x.Authority), []common.PublicKey{}))
 		//		break
-		//	case solanago.SplToken__Transfer:
-		//		ins = append(ins, tokenprog.Transfer(p(x.Source), p(x.Destination), p(x.Authority), []common.PublicKey{}, x.Amount))
-		//		break
+	case solanago.SplToken__Transfer:
+		ins = append(ins, token.Transfer(token.TransferParam{From: p(x.Source), To: p(x.Destination), Auth: p(x.Authority), Signers: []common.PublicKey{}, Amount: x.Amount}))
+		break
 		//	case solanago.SplToken__TransferChecked:
 		//		ins = append(ins, tokenprog.TransferChecked(p(x.Source), p(x.Destination), p(x.Mint), p(x.Authority), []common.PublicKey{}, x.Amount, x.Decimals))
 		//		break
-		//	case solanago.SplToken__TransferNew:
-		//		ins_create_assoc := assotokenprog.CreateAssociatedTokenAccount(p(x.Authority), p(x.Destination), p(x.Mint))
-		//		account := ins_create_assoc.Accounts[1].PubKey.ToBase58()
-		//		ins = append(ins, ins_create_assoc)
-		//		ins = append(ins, tokenprog.TransferChecked(p(x.Source), p(account), p(x.Mint), p(x.Authority), []common.PublicKey{}, x.Amount, x.Decimals))
-		//		break
-		//	case solanago.SplToken__TransferWithSystem:
-		//		source := x.SourceToken
-		//		destination := x.DestinationToken
-		//		if x.SourceToken == "" {
-		//			in := assotokenprog.CreateAssociatedTokenAccount(p(x.Authority), p(x.Source), p(x.Mint))
-		//			source = in.Accounts[1].PubKey.ToBase58()
-		//			ins = append(ins, in)
-		//		}
-		//		if x.DestinationToken == "" {
-		//			in := assotokenprog.CreateAssociatedTokenAccount(p(x.Authority), p(x.Destination), p(x.Mint))
-		//			destination = in.Accounts[1].PubKey.ToBase58()
-		//			ins = append(ins, in)
-		//		}
-		//		ins = append(ins, tokenprog.TransferChecked(p(source), p(destination), p(x.Mint), p(x.Authority), []common.PublicKey{}, x.Amount, x.Decimals))
-		//		break
+	case solanago.SplToken__TransferNew:
+		assosiatedAccount, _, _ := common.FindAssociatedTokenAddress(p(x.Destination), p(x.Mint))
+		ins_create_assoc := assotokenprog.CreateAssociatedTokenAccount(assotokenprog.CreateAssociatedTokenAccountParam{Funder: p(x.Authority), Owner: p(x.Destination), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount})
+		account := ins_create_assoc.Accounts[1].PubKey.ToBase58()
+		ins = append(ins, ins_create_assoc)
+		ins = append(ins, tokenprog.TransferChecked(tokenprog.TransferCheckedParam{From: p(x.Source), To: p(account), Mint: p(x.Mint), Auth: p(x.Authority), Signers: []common.PublicKey{}, Amount: x.Amount, Decimals: x.Decimals}))
+		break
+	case solanago.SplToken__TransferWithSystem:
+		source := x.SourceToken
+		destination := x.DestinationToken
+		if x.SourceToken == "" {
+			assosiatedAccount, _, _ := common.FindAssociatedTokenAddress(p(source), p(x.Mint))
+			in := assotokenprog.CreateAssociatedTokenAccount(assotokenprog.CreateAssociatedTokenAccountParam{Funder: p(x.Authority), Owner: p(source), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount})
+			source = in.Accounts[1].PubKey.ToBase58()
+			ins = append(ins, in)
+		}
+		if x.DestinationToken == "" {
+			assosiatedAccount, _, _ := common.FindAssociatedTokenAddress(p(x.Destination), p(x.Mint))
+			in := assotokenprog.CreateAssociatedTokenAccount(assotokenprog.CreateAssociatedTokenAccountParam{Funder: p(x.Authority), Owner: p(x.Destination), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount})
+			destination = in.Accounts[1].PubKey.ToBase58()
+			ins = append(ins, in)
+		}
+		ins = append(ins, tokenprog.TransferChecked(tokenprog.TransferCheckedParam{From: p(x.Source), To: p(destination), Mint: p(x.Mint), Auth: p(x.Authority), Signers: []common.PublicKey{}, Amount: x.Amount, Decimals: x.Decimals}))
+		break
+	default:
+		log.Printf("ERROR: unknown opType='%v'", opType)
 	}
 	return ins
 }

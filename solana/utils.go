@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"strconv"
 	"strings"
@@ -341,17 +342,27 @@ func ParseInstruction(ins solPTypes.Instruction) (ParsedInstruction, error) {
 	switch ins.ProgramID {
 	case common.SystemProgramID:
 		parsedInstruction, err = ParseSystem(ins)
+		if err != nil {
+			log.Printf("error parsing SystemProgramID instruction: %v", err)
+		}
 		break
 	case common.TokenProgramID:
 		parsedInstruction, err = ParseToken(ins)
+		if err != nil {
+			log.Printf("error parsing TokenProgramID instruction: %v", err)
+		}
 		break
 	case common.SPLAssociatedTokenAccountProgramID:
 		parsedInstruction, err = ParseAssocToken(ins)
+		if err != nil {
+			log.Printf("error parsing SPLAssociatedTokenAccountProgramID instruction: %v", err)
+		}
 		break
 	default:
 		return parsedInstruction, fmt.Errorf("Cannot parse instruction")
 	}
 	if err != nil {
+		log.Printf("error parsing instruction: %v", err)
 		return parsedInstruction, err
 	}
 	var accs []string
@@ -423,8 +434,13 @@ type AssignInstruction struct {
 }
 
 type TransferInstruction struct {
-	Instruction Instruction
+	Instruction InstructionInt
 	Lamports    uint64
+}
+
+type TokenTransferInstruction struct {
+	Instruction InstructionToken
+	Amount      uint64
 }
 
 type CreateAccountWithSeedInstruction struct {
