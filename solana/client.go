@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/imerkle/rosetta-solana-go/solana/shared_types"
+	"log"
 	"strconv"
 
 	ss "github.com/blocto/solana-go-sdk/client"
@@ -125,13 +126,14 @@ func (ec *Client) Balance(
 	account *RosettaTypes.AccountIdentifier,
 	block *RosettaTypes.PartialBlockIdentifier,
 ) (*RosettaTypes.AccountBalanceResponse, error) {
-
-	//var symbols []string
+	log.Printf("START Balance")
+	var symbols []string
 	if block != nil {
 		return nil, fmt.Errorf("block hash balance not supported")
 	}
 
 	bal, err := ec.Rpc.GetBalance(ctx, account.Address)
+	log.Printf("after rpc.getBalance")
 	if err != nil {
 		return nil, err
 	}
@@ -146,28 +148,29 @@ func (ec *Client) Balance(
 		Metadata: nil,
 	}
 
-	//tokenAccs, err := ec.Rpc.GetTokenAccountsByOwner(ctx, account.Address)
-	//
-	//if err == nil {
-	//	for _, tokenAcc := range tokenAccs {
-	//		symbol := tokenAcc.Account.Data.Parsed.Info.Mint
-	//		b := &RosettaTypes.Amount{
-	//			Value: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Amount,
-	//			Currency: &RosettaTypes.Currency{
-	//				Symbol:   symbol,
-	//				Decimals: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Decimals,
-	//				Metadata: nil,
-	//			},
-	//			Metadata: nil,
-	//		}
-	//		balances = append(balances, b)
-	//	}
-	//}
-	//if len(symbols) == 0 || Contains(symbols, Symbol) {
-	balances = append(balances, nativeBalance)
-	//}
+	tokenAccs, err := ec.directClient.GetTokenAccountsByOwner(ctx, account.Address)
+	log.Printf("after directClient.GetTokenAccountsByOwner")
+	if err == nil {
+		for _, tokenAcc := range tokenAccs {
+			symbol := tokenAcc.Account.Data.Parsed.Info.Mint
+			b := &RosettaTypes.Amount{
+				Value: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Amount,
+				Currency: &RosettaTypes.Currency{
+					Symbol:   symbol,
+					Decimals: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Decimals,
+					Metadata: nil,
+				},
+				Metadata: nil,
+			}
+			balances = append(balances, b)
+		}
+	}
+	if len(symbols) == 0 || Contains(symbols, shared_types.Symbol) {
+		balances = append(balances, nativeBalance)
+	}
 	slot, err := ec.Rpc.GetSlot(ctx)
 
+	log.Printf("END Balance")
 	return &RosettaTypes.AccountBalanceResponse{
 
 		BlockIdentifier: &RosettaTypes.BlockIdentifier{

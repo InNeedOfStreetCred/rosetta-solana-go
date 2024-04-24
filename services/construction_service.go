@@ -166,7 +166,7 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 
 		for k, v := range SplTokenAccMap {
 
-			source, _ := s.directClient.GetTokenAccountsByOwner(ctx, v.Source)
+			source, _ := s.directClient.GetTokenAccountByOwner(ctx, v.Source)
 			destination, _ := s.directClient.GetTokenAccountByMint(ctx, v.Destination, v.Mint)
 			SplTokenAccMap[k] = stypes.SplAccounts{
 				Source:      source,

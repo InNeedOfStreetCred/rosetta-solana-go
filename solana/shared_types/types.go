@@ -366,7 +366,7 @@ type Account struct {
 	Executable bool   `json:"executable"`
 	Lamports   int64  `json:"lamports"`
 	Owner      string `json:"owner"`
-	RentEpoch  int64  `json:"rentEpoch"`
+	RentEpoch  uint64 `json:"rentEpoch"`
 }
 type Accounts struct {
 	Account Account `json:"account"`

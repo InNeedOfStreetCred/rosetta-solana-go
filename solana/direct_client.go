@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/blocto/solana-go-sdk/common"
 	"github.com/imerkle/rosetta-solana-go/solana/parse"
 	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -184,7 +186,7 @@ func (s *DirectClient) GetConfirmedTransactionParsed(ctx context.Context, txhash
 	return res.Result, nil
 }
 
-func (s *DirectClient) GetTokenAccountsByOwner(ctx context.Context, account string) (string, error) {
+func (s *DirectClient) GetTokenAccountByOwner(ctx context.Context, account string) (string, error) {
 	res := struct {
 		GeneralResponse
 		Result struct {
@@ -207,6 +209,28 @@ func (s *DirectClient) GetTokenAccountsByOwner(ctx context.Context, account stri
 		return "", fmt.Errorf("No Token Account Found")
 	}
 	return tokenAccounts[0].Pubkey, nil
+}
+
+func (s *DirectClient) GetTokenAccountsByOwner(ctx context.Context, account string) ([]stypes.Accounts, error) {
+	res := struct {
+		GeneralResponse
+		Result struct {
+			Context Context           `json:"context"`
+			Value   []stypes.Accounts `json:"value"`
+		} `json:"result"`
+	}{}
+	params := []interface{}{account,
+		map[string]interface{}{"programId": common.TokenProgramID.ToBase58()},
+		map[string]interface{}{
+			"encoding": "jsonParsed",
+		}}
+	log.Printf("GetTokenAccountsByOwner before s.request for %s", account)
+	err := s.request(ctx, "getTokenAccountsByOwner", params, &res)
+	log.Printf("GetTokenAccountsByOwner after s.request")
+	if err != nil {
+		return []stypes.Accounts{}, err
+	}
+	return res.Result.Value, nil
 }
 
 func (s *DirectClient) GetTokenAccountByMint(ctx context.Context, account string, mint string) (string, error) {
