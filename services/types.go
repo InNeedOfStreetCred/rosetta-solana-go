@@ -16,9 +16,8 @@ package services
 
 import (
 	"context"
-
 	"github.com/coinbase/rosetta-sdk-go/types"
-	solanago "github.com/imerkle/rosetta-solana-go/solana"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 )
 
 // Client is used by the servicers to get block
@@ -54,12 +53,12 @@ type Client interface {
 	) (*types.CallResponse, error)
 }
 type ConstructionMetadata struct {
-	BlockHash         string                          `json:"blockhash,omitempty"`
-	BlockNumber       uint64                          `json:"blockNumber"`
-	PriorityFee       solanago.PriorityFee            `json:"priority_fee"`
-	FeeCalculator     solanago.FeeCalculator          `json:"fee_calculator"`
-	SplTokenAccMapKey map[string]solanago.SplAccounts `json:"spl_token_acc_map"`
-	WithNonce         solanago.WithNonce              `json:"with_nonce"`
+	BlockHash         string                        `json:"blockhash,omitempty"`
+	BlockNumber       uint64                        `json:"blockNumber"`
+	PriorityFee       stypes.PriorityFee            `json:"priority_fee"`
+	FeeCalculator     stypes.FeeCalculator          `json:"fee_calculator"`
+	SplTokenAccMapKey map[string]stypes.SplAccounts `json:"spl_token_acc_map"`
+	WithNonce         stypes.WithNonce              `json:"with_nonce"`
 }
 
 type MetadataWithFee struct {

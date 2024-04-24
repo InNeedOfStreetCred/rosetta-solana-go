@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package solanago
+package shared_types
 
 import (
+	solanago "github.com/blocto/solana-go-sdk/types"
 	"github.com/coinbase/rosetta-sdk-go/types"
 	bin "github.com/streamingfast/binary"
 	"github.com/streamingfast/solana-go"
@@ -75,7 +76,7 @@ const (
 	DevnetGenesisHash  = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
 )
 
-//op types
+//op shared_types
 
 const (
 	System__Transfer                  = "System__Transfer"
@@ -113,34 +114,34 @@ const (
 )
 
 var (
-	// MainnetGenesisBlockIdentifier is the *types.BlockIdentifier
+	// MainnetGenesisBlockIdentifier is the *shared_types.BlockIdentifier
 	// of the mainnet genesis block.
 	MainnetGenesisBlockIdentifier = &types.BlockIdentifier{
 		Hash:  MainnetGenesisHash,
 		Index: GenesisBlockIndex,
 	}
 
-	// TestnetGenesisBlockIdentifier is the *types.BlockIdentifier
+	// TestnetGenesisBlockIdentifier is the *shared_types.BlockIdentifier
 	// of the testnet genesis block.
 	TestnetGenesisBlockIdentifier = &types.BlockIdentifier{
 		Hash:  TestnetGenesisHash,
 		Index: GenesisBlockIndex,
 	}
-	// TestnetGenesisBlockIdentifier is the *types.BlockIdentifier
+	// TestnetGenesisBlockIdentifier is the *shared_types.BlockIdentifier
 	// of the testnet genesis block.
 	DevnetGenesisHashBlockIdentifier = &types.BlockIdentifier{
 		Hash:  DevnetGenesisHash,
 		Index: GenesisBlockIndex,
 	}
 
-	// Currency is the *types.Currency for all
+	// Currency is the *shared_types.Currency for all
 	// Ethereum networks.
 	Currency = &types.Currency{
 		Symbol:   Symbol,
 		Decimals: Decimals,
 	}
 
-	// OperationTypes are all suppoorted operation types.
+	// OperationTypes are all suppoorted operation shared_types.
 	OperationTypes = []string{
 		System__Transfer,
 		System__CreateAccount,
@@ -247,4 +248,148 @@ type SplAccounts struct {
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 	Mint        string `json:"mint"`
+}
+
+type Instruction struct {
+	ProgramIDIndex uint64   `json:"programIdIndex"`
+	Accounts       []uint64 `json:"accounts"`
+	Data           string   `json:"data"`
+}
+
+type MessageHeader struct {
+	NumRequiredSignatures       uint8 `json:"numRequiredSignatures"`
+	NumReadonlySignedAccounts   uint8 `json:"numReadonlySignedAccounts"`
+	NumReadonlyUnsignedAccounts uint8 `json:"numReadonlyUnsignedAccounts"`
+}
+
+type TransactionMeta struct {
+	Fee               uint64   `json:"fee"`
+	PreBalances       []int64  `json:"preBalances"`
+	PostBalances      []int64  `json:"postBalances"`
+	LogMessages       []string `json:"logMesssages"`
+	InnerInstructions []struct {
+		Index        uint64        `json:"index"`
+		Instructions []Instruction `json:"instructions"`
+	} `json:"innerInstructions"`
+	Err    interface{}            `json:"err"`
+	Status map[string]interface{} `json:"status"`
+}
+
+type InstructionInfo struct {
+	Info            map[string]interface{} `json:"info"`
+	InstructionType string                 `json:"type"`
+}
+
+type Info struct {
+	Authority     string              `json:"authority"`
+	BlockHash     string              `json:"blockhash"`
+	FeeCalculator FeeCalculatorString `json:"feeCalculator"`
+}
+type Parsed struct {
+	Info Info `json:"info"`
+}
+type AccData struct {
+	Parsed Parsed `json:"parsed"`
+}
+
+type FeeCalculator struct {
+	LamportsPerSignature uint64 `json:"lamportsPerSignature"`
+}
+
+type FeeCalculatorString struct {
+	LamportsPerSignature string `json:"lamportsPerSignature"`
+}
+
+type ParsedTransaction struct {
+	Signatures []string      `json:"signatures"`
+	Message    ParsedMessage `json:"message"`
+}
+
+type Reward struct {
+	Pubkey      string `json:"pubkey"`
+	Lamports    int64  `json:"lamports"`
+	PostBalance uint64 `json:"postBalance"`
+	RewardType  string `json:"rewardType"` // type of reward: "fee", "rent", "voting", "staking"
+}
+
+type GetConfirmBlockParsedResponse struct {
+	Blockhash         string                      `json:"blockhash"`
+	PreviousBlockhash string                      `json:"previousBlockhash"`
+	ParentSlot        uint64                      `json:"parentSlot"`
+	BlockTime         int64                       `json:"blockTime"`
+	Transactions      []ParsedTransactionWithMeta `json:"transactions"`
+	Rewards           []Reward                    `json:"rewards"`
+}
+
+type ParsedTransactionWithMeta struct {
+	Meta        TransactionMeta   `json:"meta"`
+	Transaction ParsedTransaction `json:"transaction"`
+}
+
+type Transaction struct {
+	Signatures []string `json:"signatures"`
+	Message    Message  `json:"message"`
+}
+
+type Message struct {
+	Header          MessageHeader `json:"header"`
+	AccountKeys     []string      `json:"accountKeys"`
+	RecentBlockhash string        `json:"recentBlockhash"`
+	Instructions    []Instruction `json:"instructions"`
+}
+
+type TokenAmount struct {
+	Amount         string  `json:"amount"`
+	Decimals       int32   `json:"decimals"`
+	UIAmount       float64 `json:"uiAmount"`
+	UIAmountString string  `json:"uiAmountString"`
+}
+type ParsedAccountInfo struct {
+	Delegate        string      `json:"delegate"`
+	DelegatedAmount TokenAmount `json:"delegatedAmount,omitempty"`
+	IsInitialized   bool        `json:"isInitialized"`
+	IsNative        bool        `json:"isNative"`
+	Mint            string      `json:"mint"`
+	Owner           string      `json:"owner"`
+	TokenAmount     TokenAmount `json:"tokenAmount"`
+}
+type ParsedAccountData struct {
+	AccountType string            `json:"accountType"`
+	Info        ParsedAccountInfo `json:"info"`
+}
+type Data struct {
+	Parsed  ParsedAccountData `json:"parsed"`
+	Program string            `json:"program"`
+}
+type Account struct {
+	Data       Data   `json:"data"`
+	Executable bool   `json:"executable"`
+	Lamports   int64  `json:"lamports"`
+	Owner      string `json:"owner"`
+	RentEpoch  int64  `json:"rentEpoch"`
+}
+type Accounts struct {
+	Account Account `json:"account"`
+	Pubkey  string  `json:"pubkey,omitempty"`
+}
+
+type ParsedMessage struct {
+	Header          solanago.MessageHeader `json:"header"`
+	AccountKeys     []ParsedAccKey         `json:"accountKeys"`
+	RecentBlockhash string                 `json:"recentBlockhash"`
+	Instructions    []ParsedInstruction    `json:"instructions"`
+}
+
+type ParsedInstruction struct {
+	Accounts  []string         `json:"accounts,omitempty"`
+	Data      string           `json:"data,omitempty"`
+	Parsed    *InstructionInfo `json:"parsed,omitempty"`
+	Program   string           `json:"program,omitempty"`
+	ProgramID string           `json:"programId"`
+}
+
+type ParsedAccKey struct {
+	PubKey     string `json:"pubkey"`
+	IsSigner   bool   `json:"signer"`
+	IsWritable bool   `json:"writable"`
 }

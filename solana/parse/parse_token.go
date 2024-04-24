@@ -1,10 +1,10 @@
-package solanago
+package parse
 
 import (
 	"fmt"
-	"github.com/blocto/solana-go-sdk/common"
 	"github.com/blocto/solana-go-sdk/types"
 	"github.com/ghostiam/binstruct"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"log"
 	"math"
 )
@@ -31,71 +31,8 @@ const (
 	InstructionInitializeAccount2
 )
 
-type InitializeMintInstruction struct {
-	Instruction     Instruction
-	Decimals        uint8
-	MintAuthority   common.PublicKey
-	Option          bool
-	FreezeAuthority common.PublicKey
-}
-type InitializeAccountInstruction struct {
-	Instruction Instruction
-}
-type InitializeMultisigInstruction struct {
-	Instruction     Instruction
-	MinimumRequired uint8
-}
-type ApproveInstruction struct {
-	Instruction Instruction
-	Amount      uint64
-}
-type RevokeInstruction struct {
-	Instruction Instruction
-}
-type MintToInstruction struct {
-	Instruction Instruction
-	Amount      uint64
-}
-type BurnInstruction struct {
-	Instruction Instruction
-	Amount      uint64
-}
-type CloseAccountInstruction struct {
-	Instruction Instruction
-}
-type FreezeAccountInstruction struct {
-	Instruction Instruction
-}
-type ThawAccountInstruction struct {
-	Instruction Instruction
-}
-type TransferCheckedInstruction struct {
-	Instruction InstructionToken
-	Amount      uint64
-	Decimals    uint8
-}
-type ApproveCheckedInstruction struct {
-	Instruction Instruction
-	Amount      uint64
-	Decimals    uint8
-}
-type MintToCheckedInstruction struct {
-	Instruction Instruction
-	Amount      uint64
-	Decimals    uint8
-}
-type BurnCheckedInstruction struct {
-	Instruction Instruction
-	Amount      uint64
-	Decimals    uint8
-}
-type InitializeAccount2Instruction struct {
-	Instruction Instruction
-	Owner       common.PublicKey
-}
-
-func ParseToken(ins types.Instruction) (ParsedInstruction, error) {
-	var parsedInstruction ParsedInstruction
+func ParseToken(ins types.Instruction) (stypes.ParsedInstruction, error) {
+	var parsedInstruction stypes.ParsedInstruction
 	var err error
 	var s struct {
 		Instruction InstructionToken
@@ -281,7 +218,7 @@ func ParseToken(ins types.Instruction) (ParsedInstruction, error) {
 		log.Printf("ERROR unknown type='%v'", s.Instruction)
 	}
 
-	parsedInstruction.Parsed = &InstructionInfo{
+	parsedInstruction.Parsed = &stypes.InstructionInfo{
 		Info:            parsedInfo,
 		InstructionType: instructionType,
 	}
@@ -307,12 +244,6 @@ func parse_signers(
 
 	}
 	return m
-}
-
-type UiTokenAmount struct {
-	UiAmount float64
-	Decimals uint8
-	Amount   string
 }
 
 func tokenAmountToUiAmount(amount uint64, decimals uint8) UiTokenAmount {

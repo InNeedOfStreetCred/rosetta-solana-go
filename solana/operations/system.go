@@ -8,6 +8,7 @@ import (
 	solPTypes "github.com/blocto/solana-go-sdk/types"
 	"github.com/coinbase/rosetta-sdk-go/types"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"log"
 )
 
@@ -21,7 +22,7 @@ type SystemOperationMetadata struct {
 	MicroLamportsUnitPrice uint64 `json:"micro_lamports_unit_price,omitempty"`
 }
 
-func (x *SystemOperationMetadata) SetMeta(op *types.Operation, fee solanago.PriorityFee) {
+func (x *SystemOperationMetadata) SetMeta(op *types.Operation, fee stypes.PriorityFee) {
 	jsonString, _ := json.Marshal(op.Metadata)
 	json.Unmarshal(jsonString, &x)
 	if x.Lamports == 0 {
@@ -45,19 +46,19 @@ func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Inst
 	var ins []solPTypes.Instruction
 	ins = AddSetComputeUnitPriceParam(x.MicroLamportsUnitPrice, ins)
 	switch opType {
-	case solanago.System__CreateAccount:
+	case stypes.System__CreateAccount:
 		log.Printf("System__CreateAccount adding CreateAccount")
 		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Lamports: x.Lamports, Space: x.Space}))
 		break
-	case solanago.System__Assign:
+	case stypes.System__Assign:
 		ins = append(ins, system.Assign(system.AssignParam{From: p(x.Source)}))
 		break
-	case solanago.System__Transfer:
+	case stypes.System__Transfer:
 
 		log.Printf("System__Transfer adding transfer")
 		ins = append(ins, system.Transfer(system.TransferParam{From: p(x.Source), To: p(x.Destination), Amount: x.Lamports}))
 		break
-	case solanago.System__CreateNonceAccount:
+	case stypes.System__CreateNonceAccount:
 		log.Printf("System__CreateNonceAccount adding CreateAccount")
 		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Lamports: x.Lamports, Space: sysprog.NonceAccountSize}))
 		log.Printf("System__CreateNonceAccount adding InitializeNonceAccount")
@@ -72,17 +73,17 @@ func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Inst
 		})
 
 		break
-	case solanago.System__AdvanceNonce:
+	case stypes.System__AdvanceNonce:
 		log.Printf("System__AdvanceNonce adding AdvanceNonceAccount")
 		ins = append(ins, system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{Nonce: p(x.Destination), Auth: p(x.Authority)}))
 		break
-	case solanago.System__WithdrawFromNonce:
+	case stypes.System__WithdrawFromNonce:
 		ins = append(ins, system.WithdrawNonceAccount(system.WithdrawNonceAccountParam{p(x.Source), p(x.Authority), p(x.Destination), x.Lamports}))
 		break
-	case solanago.System__AuthorizeNonce:
+	case stypes.System__AuthorizeNonce:
 		ins = append(ins, system.AuthorizeNonceAccount(system.AuthorizeNonceAccountParam{p(x.Destination), p(x.Authority), p(x.NewAuthority)}))
 		break
-	case solanago.System__Allocate:
+	case stypes.System__Allocate:
 		ins = append(ins, system.Allocate(system.AllocateParam{p(x.Source), x.Space}))
 		break
 	}

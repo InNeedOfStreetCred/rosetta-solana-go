@@ -8,6 +8,7 @@ import (
 	solPTypes "github.com/blocto/solana-go-sdk/types"
 	types "github.com/coinbase/rosetta-sdk-go/types"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"log"
 )
 
@@ -31,7 +32,7 @@ type StakeOperationMetadata struct {
 	MicroLamportsUnitPrice uint64 `json:"micro_lamports_unit_price,omitempty"`
 }
 
-func (x *StakeOperationMetadata) SetMeta(op *types.Operation, fee solanago.PriorityFee) {
+func (x *StakeOperationMetadata) SetMeta(op *types.Operation, fee stypes.PriorityFee) {
 	jsonString, _ := json.Marshal(op.Metadata)
 	json.Unmarshal(jsonString, &x)
 	if x.Lamports == 0 && op.Amount != nil {
@@ -58,20 +59,20 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 	var ins []solPTypes.Instruction
 	ins = AddSetComputeUnitPriceParam(x.MicroLamportsUnitPrice, ins)
 	switch opType {
-	case solanago.Stake__CreateStakeAccount:
+	case stypes.Stake__CreateStakeAccount:
 		ins = addCreateStakeAccountIns(ins, x)
 		break
-	case solanago.Stake__DelegateStake:
+	case stypes.Stake__DelegateStake:
 		ins = addDelegateStakeIns(ins, x)
 		break
-	case solanago.Stake__CreateStakeAndDelegate:
+	case stypes.Stake__CreateStakeAndDelegate:
 		ins = addCreateStakeAccountIns(ins, x)
 		ins = addDelegateStakeIns(ins, x)
 		break
-	case solanago.Stake__DeactivateStake:
+	case stypes.Stake__DeactivateStake:
 		ins = append(ins, stake.Deactivate(stake.DeactivateParam{Stake: p(x.Stake), Auth: p(x.Staker)}))
 		break
-	case solanago.Stake__WithdrawStake:
+	case stypes.Stake__WithdrawStake:
 		lockupCustodian := p(x.LockupCustodian)
 		ins = append(ins,
 			stake.Withdraw(

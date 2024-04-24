@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/blocto/solana-go-sdk/program/system"
+	"github.com/imerkle/rosetta-solana-go/solana/parse"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"log"
 	"strconv"
 	"strings"
@@ -85,7 +87,7 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 
 	var matchedOperationHashMap = make(map[int64]bool)
 
-	var SplSystemAccMap = make(map[int64]solanago.SplAccounts)
+	var SplSystemAccMap = make(map[int64]stypes.SplAccounts)
 	for _, op := range request.Operations {
 		LogOperation(op)
 
@@ -95,8 +97,8 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 		if cont {
 			continue
 		}
-		if matched != nil && op.Type == solanago.SplToken__TransferWithSystem {
-			SplSystemAccMap[op.OperationIdentifier.Index] = solanago.SplAccounts{
+		if matched != nil && op.Type == stypes.SplToken__TransferWithSystem {
+			SplSystemAccMap[op.OperationIdentifier.Index] = stypes.SplAccounts{
 				Source:      op.Account.Address,
 				Destination: matched.Account.Address,
 				Mint:        op.Amount.Currency.Symbol,
@@ -108,9 +110,9 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 	log.Printf("END /construction/preprocess")
 	return &types.ConstructionPreprocessResponse{
 		Options: map[string]interface{}{
-			solanago.WithNonceKey:       withNonce,
-			solanago.PriorityFeeKey:     priorityFee,
-			solanago.SplSystemAccMapKey: SplSystemAccMap,
+			stypes.WithNonceKey:       withNonce,
+			stypes.PriorityFeeKey:     priorityFee,
+			stypes.SplSystemAccMapKey: SplSystemAccMap,
 		},
 	}, nil
 }
@@ -127,7 +129,7 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 
 	var hash string
 	var blockNumber uint64
-	var feeCalculator solanago.FeeCalculator
+	var feeCalculator stypes.FeeCalculator
 	withNonce, hasNonce := solanago.GetWithNonce(request.Options)
 	log.Printf("withNonce=%s\n", withNonce)
 	log.Printf("hasNonce=%t\n", hasNonce)
@@ -142,7 +144,7 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 		withNonce.Authority = acc.Data.Parsed.Info.Authority
 		hash = acc.Data.Parsed.Info.BlockHash
 		var ssFeeCalculator = acc.Data.Parsed.Info.FeeCalculator
-		feeCalculator = solanago.FeeCalculator{LamportsPerSignature: solanago.ValueToBaseAmount(ssFeeCalculator.LamportsPerSignature)}
+		feeCalculator = stypes.FeeCalculator{LamportsPerSignature: solanago.ValueToBaseAmount(ssFeeCalculator.LamportsPerSignature)}
 		log.Printf("acc=%+v\n", acc)
 	} else {
 		log.Printf("inside hasNonce=false")
@@ -154,9 +156,9 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 		log.Printf("blockHash=%s\n", hash)
 	}
 
-	var SplTokenAccMap = make(map[string]solanago.SplAccounts)
+	var SplTokenAccMap = make(map[string]stypes.SplAccounts)
 
-	if w, ok := request.Options[solanago.SplSystemAccMapKey]; ok {
+	if w, ok := request.Options[stypes.SplSystemAccMapKey]; ok {
 		w1 := w.(map[string]interface{})
 		if err := unmarshalJSONMap(w1, &SplTokenAccMap); err != nil {
 			return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
@@ -166,7 +168,7 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 
 			source, _ := s.directClient.GetTokenAccountsByOwner(ctx, v.Source)
 			destination, _ := s.directClient.GetTokenAccountByMint(ctx, v.Destination, v.Mint)
-			SplTokenAccMap[k] = solanago.SplAccounts{
+			SplTokenAccMap[k] = stypes.SplAccounts{
 				Source:      source,
 				Destination: destination,
 				Mint:        v.Mint,
@@ -191,7 +193,7 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 		SuggestedFee: []*types.Amount{
 			{
 				Value:    strconv.FormatInt(int64(feeCalculator.LamportsPerSignature), 10),
-				Currency: solanago.Currency,
+				Currency: stypes.Currency,
 			},
 		},
 	}, nil
@@ -294,7 +296,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 		}
 
 		log.Printf("tmpOP.Type=%s\n", tmpOP.Type)
-		switch strings.Split(tmpOP.Type, solanago.Separator)[0] {
+		switch strings.Split(tmpOP.Type, stypes.Separator)[0] {
 		case "System":
 			s := operations.SystemOperationMetadata{}
 			s.SetMeta(tmpOP, meta.PriorityFee)
@@ -314,7 +316,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 			s := operations.StakeOperationMetadata{}
 			s.SetMeta(tmpOP, meta.PriorityFee)
 			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
-			if tmpOP.Type == solanago.Stake__WithdrawStake && s.FeePayer != "" {
+			if tmpOP.Type == stypes.Stake__WithdrawStake && s.FeePayer != "" {
 				feePayer = common.PublicKeyFromString(s.FeePayer)
 			}
 			break
@@ -500,7 +502,7 @@ func (s *ConstructionAPIService) ConstructionParse(
 			Address: v,
 		})
 	}
-	parsedTx, err := solanago.ToParsedTransaction(tx)
+	parsedTx, err := parse.ToParsedTransaction(tx)
 	if err != nil {
 		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
 	}

@@ -134,7 +134,7 @@ var (
 	}
 )
 
-// wrapErr adds details to the types.Error provided. We use a function
+// wrapErr adds details to the shared_types.Error provided. We use a function
 // to do this so that we don't accidentially overrwrite the standard
 // errors.
 func wrapErr(rErr *types.Error, err error) *types.Error {

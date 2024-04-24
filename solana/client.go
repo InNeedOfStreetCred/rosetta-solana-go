@@ -17,6 +17,7 @@ package solanago
 import (
 	"context"
 	"fmt"
+	"github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"strconv"
 
 	ss "github.com/blocto/solana-go-sdk/client"
@@ -138,8 +139,8 @@ func (ec *Client) Balance(
 	nativeBalance := &RosettaTypes.Amount{
 		Value: fmt.Sprint(bal),
 		Currency: &RosettaTypes.Currency{
-			Symbol:   Symbol,
-			Decimals: Decimals,
+			Symbol:   shared_types.Symbol,
+			Decimals: shared_types.Decimals,
 			Metadata: nil,
 		},
 		Metadata: nil,

@@ -1,9 +1,12 @@
-package solanago
+package parse
 
-import "github.com/blocto/solana-go-sdk/types"
+import (
+	"github.com/blocto/solana-go-sdk/types"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
+)
 
-func ParseAssocToken(ins types.Instruction) (ParsedInstruction, error) {
-	var parsedInstruction ParsedInstruction
+func ParseAssocToken(ins types.Instruction) (stypes.ParsedInstruction, error) {
+	var parsedInstruction stypes.ParsedInstruction
 	var err error
 	instructionType := "create"
 	parsedInfo := map[string]interface{}{
@@ -15,7 +18,7 @@ func ParseAssocToken(ins types.Instruction) (ParsedInstruction, error) {
 		"tokenProgram":  ins.Accounts[5].PubKey.ToBase58(),
 		"rentSysvar":    ins.Accounts[6].PubKey.ToBase58(),
 	}
-	parsedInstruction.Parsed = &InstructionInfo{
+	parsedInstruction.Parsed = &stypes.InstructionInfo{
 		Info:            parsedInfo,
 		InstructionType: instructionType,
 	}
