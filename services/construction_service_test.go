@@ -16,10 +16,6 @@ import (
 	"gotest.tools/assert"
 )
 
-func TestConstructionServiceSplCreateAssociated(t *testing.T) {
-
-}
-
 func TestConstructionServiceSpl(t *testing.T) {
 	fromToken := &types.AccountIdentifier{
 		Address: "95Dq3sXa3omVjiyxBSD6UMrzPYdmyu6CFCw5wS4rhqgV",

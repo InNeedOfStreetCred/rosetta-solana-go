@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/blocto/solana-go-sdk/common"
+	"github.com/blocto/solana-go-sdk/program/associated_token_account"
 	"github.com/blocto/solana-go-sdk/program/assotokenprog"
 	"github.com/blocto/solana-go-sdk/program/system"
 	"github.com/blocto/solana-go-sdk/program/token"
@@ -92,11 +93,25 @@ func (x *SplTokenOperationMetadata) ToInstructions(opType string) []solPTypes.In
 		//		ins = append(ins, tokenprog.ThawAccount(p(x.Source), p(x.Mint), p(x.Authority), []common.PublicKey{}))
 		//		break
 	case stypes.SplToken__Transfer:
-		ins = append(ins, token.Transfer(token.TransferParam{From: p(x.Source), To: p(x.Destination), Auth: p(x.Authority), Signers: []common.PublicKey{}, Amount: x.Amount}))
+		param := token.TransferParam{
+			From:    p(x.Source),
+			To:      p(x.Destination),
+			Auth:    p(x.Authority),
+			Signers: []common.PublicKey{},
+			Amount:  x.Amount}
+		ins = append(ins, token.Transfer(param))
 		break
-		//	case solanago.SplToken__TransferChecked:
-		//		ins = append(ins, tokenprog.TransferChecked(p(x.Source), p(x.Destination), p(x.Mint), p(x.Authority), []common.PublicKey{}, x.Amount, x.Decimals))
-		//		break
+	case stypes.SplToken__TransferChecked:
+		param := token.TransferCheckedParam{
+			From:     p(x.Source),
+			To:       p(x.Destination),
+			Mint:     p(x.Mint),
+			Auth:     p(x.Authority),
+			Signers:  []common.PublicKey{},
+			Amount:   x.Amount,
+			Decimals: x.Decimals}
+		ins = append(ins, token.TransferChecked(param))
+		break
 	case stypes.SplToken__TransferNew:
 		assosiatedAccount, _, _ := common.FindAssociatedTokenAddress(p(x.Destination), p(x.Mint))
 		ins_create_assoc := assotokenprog.CreateAssociatedTokenAccount(assotokenprog.CreateAssociatedTokenAccountParam{Funder: p(x.Authority), Owner: p(x.Destination), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount})
@@ -109,13 +124,15 @@ func (x *SplTokenOperationMetadata) ToInstructions(opType string) []solPTypes.In
 		destination := x.DestinationToken
 		if x.SourceToken == "" {
 			assosiatedAccount, _, _ := common.FindAssociatedTokenAddress(p(source), p(x.Mint))
-			in := assotokenprog.CreateAssociatedTokenAccount(assotokenprog.CreateAssociatedTokenAccountParam{Funder: p(x.Authority), Owner: p(source), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount})
+			param := associated_token_account.CreateIdempotentParam{Funder: p(x.Authority), Owner: p(source), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount}
+			in := associated_token_account.CreateIdempotent(param)
 			source = in.Accounts[1].PubKey.ToBase58()
 			ins = append(ins, in)
 		}
 		if x.DestinationToken == "" {
 			assosiatedAccount, _, _ := common.FindAssociatedTokenAddress(p(x.Destination), p(x.Mint))
-			in := assotokenprog.CreateAssociatedTokenAccount(assotokenprog.CreateAssociatedTokenAccountParam{Funder: p(x.Authority), Owner: p(x.Destination), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount})
+			param := associated_token_account.CreateIdempotentParam{Funder: p(x.Authority), Owner: p(x.Destination), Mint: p(x.Mint), AssociatedTokenAccount: assosiatedAccount}
+			in := associated_token_account.CreateIdempotent(param)
 			destination = in.Accounts[1].PubKey.ToBase58()
 			ins = append(ins, in)
 		}
