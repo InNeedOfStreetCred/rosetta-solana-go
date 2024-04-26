@@ -79,38 +79,40 @@ const (
 //op shared_types
 
 const (
-	System__Transfer                  = "System__Transfer"
-	System__CreateAccount             = "System__CreateAccount"
-	System__Assign                    = "System__Assign"
-	System__CreateNonceAccount        = "System__CreateNonceAccount"
-	System__AdvanceNonce              = "System__AdvanceNonce"
-	System__WithdrawFromNonce         = "System__WithdrawFromNonce"
-	System__AuthorizeNonce            = "System__AuthorizeNonce"
-	System__Allocate                  = "System__Allocate"
-	SplToken__Transfer                = "SplToken__Transfer"
-	SplToken__InitializeMint          = "SplToken__InitializeMint"
-	SplToken__InitializeAccount       = "SplToken__InitializeAccount"
-	SplToken__CreateToken             = "SplToken__CreateToken"
-	SplToken__CreateAccount           = "SplToken__CreateAccount"
-	SplToken__Approve                 = "SplToken__Approve"
-	SplToken__Revoke                  = "SplToken__Revoke"
-	SplToken_MintTo                   = "SplToken_MintTo"
-	SplToken_Burn                     = "SplToken_Burn"
-	SplToken_CloseAccount             = "SplToken_CloseAccount"
-	SplToken_FreezeAccount            = "SplToken_FreezeAccount"
-	SplToken__TransferChecked         = "SplToken__TransferChecked"
-	SplToken__TransferNew             = "SplToken__TransferNew"
-	SplToken__TransferWithSystem      = "SplToken__TransferWithSystem"
-	SplAssociatedTokenAccount__Create = "SplAssociatedTokenAccount__Create"
-	Unknown                           = "Unknown"
-	Stake__CreateStakeAccount         = "Stake__CreateStakeAccount"
-	Stake__DelegateStake              = "Stake__DelegateStake"
-	Stake__CreateStakeAndDelegate     = "Stake__CreateStakeAndDelegate"
-	Stake__DeactivateStake            = "Stake__DeactivateStake"
-	Stake__WithdrawStake              = "Stake__WithdrawStake"
-	Stake__Merge                      = "Stake__Merge"
-	Stake__Split                      = "Stake__Split"
-	Stake__Authorize                  = "Stake__Authorize"
+	System__Transfer                   = "System__Transfer"
+	System__CreateAccount              = "System__CreateAccount"
+	System__Assign                     = "System__Assign"
+	System__CreateNonceAccount         = "System__CreateNonceAccount"
+	System__AdvanceNonce               = "System__AdvanceNonce"
+	System__WithdrawFromNonce          = "System__WithdrawFromNonce"
+	System__AuthorizeNonce             = "System__AuthorizeNonce"
+	System__InitializeNonce            = "System__InitializeNonce"
+	System__Allocate                   = "System__Allocate"
+	SplToken__Transfer                 = "SplToken__Transfer"
+	SplToken__InitializeMint           = "SplToken__InitializeMint"
+	SplToken__InitializeAccount        = "SplToken__InitializeAccount"
+	SplToken__CreateToken              = "SplToken__CreateToken"
+	SplToken__CreateAccount            = "SplToken__CreateAccount"
+	SplToken__Approve                  = "SplToken__Approve"
+	SplToken__Revoke                   = "SplToken__Revoke"
+	SplToken_MintTo                    = "SplToken_MintTo"
+	SplToken_Burn                      = "SplToken_Burn"
+	SplToken_CloseAccount              = "SplToken_CloseAccount"
+	SplToken_FreezeAccount             = "SplToken_FreezeAccount"
+	SplToken__TransferChecked          = "SplToken__TransferChecked"
+	SplToken__TransferNew              = "SplToken__TransferNew"
+	SplToken__TransferWithSystem       = "SplToken__TransferWithSystem"
+	SplAssociatedTokenAccount__Create  = "SplAssociatedTokenAccount__Create"
+	Unknown                            = "Unknown"
+	Stake__CreateStakeAccount          = "Stake__CreateStakeAccount"
+	Stake__DelegateStake               = "Stake__DelegateStake"
+	Stake__CreateStakeAndDelegate      = "Stake__CreateStakeAndDelegate"
+	Stake__DeactivateStake             = "Stake__DeactivateStake"
+	Stake__WithdrawStake               = "Stake__WithdrawStake"
+	Stake__Merge                       = "Stake__Merge"
+	Stake__Split                       = "Stake__Split"
+	Stake__Authorize                   = "Stake__Authorize"
+	ComputeBudget__SetComputeUnitPrice = "ComputeBudget__SetComputeUnitPrice"
 )
 
 var (
@@ -150,6 +152,7 @@ var (
 		System__AdvanceNonce,
 		System__WithdrawFromNonce,
 		System__AuthorizeNonce,
+		System__InitializeNonce,
 		System__Allocate,
 		SplToken__Transfer,
 		SplToken__InitializeMint,
@@ -174,6 +177,7 @@ var (
 		Stake__Merge,
 		Stake__Split,
 		Stake__Authorize,
+		ComputeBudget__SetComputeUnitPrice,
 		Unknown,
 	}
 
@@ -194,16 +198,6 @@ var (
 		"deregisterNode", "validatorExit", "getAccountInfo", "getBalance", "getBlockTime", "getClusterNodes", "getConfirmedBlock", "getConfirmedBlocks", "getConfirmedBlocksWithLimit", "getConfirmedSignaturesForAddress", "getConfirmedSignaturesForAddress2", "getConfirmedTransaction", "getEpochInfo", "getEpochSchedule", "getFeeCalculatorForBlockhash", "getFeeRateGovernor", "getFees", "getFirstAvailableBlock", "getGenesisHash", "getHealth", "getIdentity", "getInflationGovernor", "getInflationRate", "getLargestAccounts", "getLeaderSchedule", "getMinimumBalanceForRentExemption", "getMultipleAccounts", "getProgramAccounts", "getRecentBlockhash", "getSnapshotSlot", "getSignatureStatuses", "getSlot", "getSlotLeader", "getStorageTurn", "getStorageTurnRate", "getSlotsPerSegment", "getStoragePubkeysForSlot", "getSupply", "getTokenAccountBalance", "getTokenAccountsByDelegate", "getTokenAccountsByOwner", "getTokenSupply", "getTotalSupply", "getTransactionCount", "getVersion", "getVoteAccounts", "minimumLedgerSlot", "registerNode", "requestAirdrop", "sendTransaction", "simulateTransaction", "signVote",
 	}
 )
-
-type TokenParsed struct {
-	Decimals        uint64
-	Amount          uint64
-	MintAutority    solana.PublicKey
-	FreezeAuthority solana.PublicKey
-	AuthorityType   solana.PublicKey
-	NewAuthority    solana.PublicKey
-	M               byte
-}
 
 type ParsedInstructionMeta struct {
 	Authority    string            `json:"authority,omitempty"`

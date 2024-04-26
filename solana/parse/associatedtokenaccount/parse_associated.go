@@ -1,4 +1,4 @@
-package parse
+package associatedtokenaccount
 
 import (
 	"github.com/blocto/solana-go-sdk/types"

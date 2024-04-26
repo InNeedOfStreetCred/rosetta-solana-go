@@ -1,7 +1,8 @@
-package parse
+package token
 
 import (
 	"fmt"
+	"github.com/blocto/solana-go-sdk/common"
 	"github.com/blocto/solana-go-sdk/types"
 	"github.com/ghostiam/binstruct"
 	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
@@ -9,10 +10,10 @@ import (
 	"math"
 )
 
-type InstructionToken uint8
+type Instruction uint8
 
 const (
-	InstructionInitializeMint InstructionToken = iota
+	InstructionInitializeMint Instruction = iota
 	InstructionInitializeAccount
 	InstructionInitializeMultisig
 	InstructionTransferToken
@@ -35,7 +36,7 @@ func ParseToken(ins types.Instruction) (stypes.ParsedInstruction, error) {
 	var parsedInstruction stypes.ParsedInstruction
 	var err error
 	var s struct {
-		Instruction InstructionToken
+		Instruction Instruction
 	}
 	err = binstruct.UnmarshalLE(ins.Data, &s)
 	var instructionType string
@@ -255,4 +256,74 @@ func tokenAmountToUiAmount(amount uint64, decimals uint8) UiTokenAmount {
 		Amount:   fmt.Sprint(amount),
 	}
 	return uitokenAmt
+}
+
+type InitializeMintInstruction struct {
+	Instruction     Instruction
+	Decimals        uint8
+	MintAuthority   common.PublicKey
+	Option          bool
+	FreezeAuthority common.PublicKey
+}
+
+type InitializeAccountInstruction struct {
+	Instruction Instruction
+}
+
+type TokenTransferInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+}
+
+type ApproveInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+}
+
+type RevokeInstruction struct {
+	Instruction Instruction
+}
+type MintToInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+}
+type BurnInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+}
+type CloseAccountInstruction struct {
+	Instruction Instruction
+}
+
+type FreezeAccountInstruction struct {
+	Instruction Instruction
+}
+type ThawAccountInstruction struct {
+	Instruction Instruction
+}
+type TransferCheckedInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+	Decimals    uint8
+}
+
+type ApproveCheckedInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+	Decimals    uint8
+}
+type MintToCheckedInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+	Decimals    uint8
+}
+type BurnCheckedInstruction struct {
+	Instruction Instruction
+	Amount      uint64
+	Decimals    uint8
+}
+type UiTokenAmount struct {
+	UiAmount float64
+	Decimals uint8
+	Amount   string
 }

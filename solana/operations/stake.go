@@ -96,7 +96,7 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 		//			p(x.Stake),
 		//			p(x.Staker),
 		//			p(x.SplitDestination),
-		//			x.Lamports))
+		//			x.MicroLamports))
 		//	break
 		//case solanago.Stake__Authorize:
 		//	ins = append(ins,

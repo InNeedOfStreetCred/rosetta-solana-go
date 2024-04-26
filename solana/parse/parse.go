@@ -1,9 +1,12 @@
 package parse
 
 import (
-	"fmt"
 	"github.com/blocto/solana-go-sdk/common"
 	types "github.com/blocto/solana-go-sdk/types"
+	"github.com/imerkle/rosetta-solana-go/solana/parse/associatedtokenaccount"
+	"github.com/imerkle/rosetta-solana-go/solana/parse/computebudget"
+	"github.com/imerkle/rosetta-solana-go/solana/parse/system"
+	"github.com/imerkle/rosetta-solana-go/solana/parse/token"
 	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"github.com/mr-tron/base58"
 	"log"
@@ -18,6 +21,7 @@ var (
 	Secp256k1ProgramID                 = common.PublicKeyFromString("KeccakSecp256k11111111111111111111111111111")
 	TokenProgramID                     = common.PublicKeyFromString("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 	SPLAssociatedTokenAccountProgramID = common.PublicKeyFromString("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+	ComputeBudgetProgramID             = common.PublicKeyFromString("ComputeBudget111111111111111111111111111111")
 )
 
 func ToParsedTransaction(tx types.Transaction) (stypes.ParsedTransaction, error) {
@@ -58,25 +62,33 @@ func ParseInstruction(ins types.Instruction) (stypes.ParsedInstruction, error) {
 
 	switch ins.ProgramID {
 	case common.SystemProgramID:
-		parsedInstruction, err = ParseSystem(ins)
+		parsedInstruction, err = system.ParseSystem(ins)
 		if err != nil {
 			log.Printf("error parsing SystemProgramID instruction: %v", err)
 		}
 		break
 	case common.TokenProgramID:
-		parsedInstruction, err = ParseToken(ins)
+		parsedInstruction, err = token.ParseToken(ins)
 		if err != nil {
 			log.Printf("error parsing TokenProgramID instruction: %v", err)
 		}
 		break
 	case common.SPLAssociatedTokenAccountProgramID:
-		parsedInstruction, err = ParseAssocToken(ins)
+		parsedInstruction, err = associatedtokenaccount.ParseAssocToken(ins)
 		if err != nil {
 			log.Printf("error parsing SPLAssociatedTokenAccountProgramID instruction: %v", err)
 		}
 		break
+
+	case common.ComputeBudgetProgramID:
+		parsedInstruction, err = computebudget.ParseComputeBudget(ins)
+		if err != nil {
+			log.Printf("error parsing ComputeBudgetProgramID instruction: %v", err)
+		}
+		break
 	default:
-		return parsedInstruction, fmt.Errorf("Cannot parse instruction")
+		log.Printf("error parsing instruction. ins.ProgramI=%v is unknown", ins.ProgramID)
+		//return parsedInstruction, fmt.Errorf("Cannot parse instruction")
 	}
 	if err != nil {
 		log.Printf("error parsing instruction: %v", err)
@@ -119,6 +131,9 @@ func GetProgramName(programId common.PublicKey) string {
 		break
 	case SPLAssociatedTokenAccountProgramID:
 		name = "spl-associated-token-account"
+		break
+	case ComputeBudgetProgramID:
+		name = "compute-budget"
 		break
 	}
 	return name
