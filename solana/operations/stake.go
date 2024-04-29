@@ -83,30 +83,36 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 					Lamports:  x.Lamports,
 					Custodian: &lockupCustodian}))
 		break
-		//case solanago.Stake__Merge:
-		//	ins = append(ins,
-		//		stake.Merge(
-		//			p(x.MergeDestination),
-		//			p(x.Stake),
-		//			p(x.Staker)))
-		//	break
-		//case solanago.Stake__Split:
-		//	ins = append(ins,
-		//		stake.Split(
-		//			p(x.Stake),
-		//			p(x.Staker),
-		//			p(x.SplitDestination),
-		//			x.MicroLamports))
-		//	break
-		//case solanago.Stake__Authorize:
-		//	ins = append(ins,
-		//		stake.Authorize(
-		//			p(x.Stake),
-		//			p(x.Authority),
-		//			p(x.NewAuthority),
-		//			stakeprog.StakeAuthorizationType(x.StakeAuthorizationType),
-		//			p(x.LockupCustodian)))
-		//	break
+	case stypes.Stake__Merge:
+		ins = append(ins,
+			stake.Merge(
+				stake.MergeParam{
+					p(x.MergeDestination),
+					p(x.Stake),
+					p(x.Staker),
+				}))
+		break
+	case stypes.Stake__Split:
+		ins = append(ins,
+			stake.Split(
+				stake.SplitParam{
+					Stake:      p(x.Stake),
+					Auth:       p(x.Staker),
+					SplitStake: p(x.SplitDestination),
+					Lamports:   x.Lamports}))
+		break
+	case stypes.Stake__Authorize:
+		lockupCustodian := p(x.LockupCustodian)
+		ins = append(ins,
+			stake.Authorize(
+				stake.AuthorizeParam{
+					Stake:     p(x.Stake),
+					Auth:      p(x.Authority),
+					NewAuth:   p(x.NewAuthority),
+					AuthType:  stake.StakeAuthorizationType(x.StakeAuthorizationType),
+					Custodian: &lockupCustodian,
+				}))
+		break
 	}
 
 	log.Printf("There are %v instructions", len(ins))
