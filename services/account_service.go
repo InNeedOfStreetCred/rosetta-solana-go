@@ -16,6 +16,7 @@ package services
 
 import (
 	"context"
+	"log"
 
 	"github.com/imerkle/rosetta-solana-go/configuration"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
@@ -45,6 +46,7 @@ func (s *AccountAPIService) AccountBalance(
 	ctx context.Context,
 	request *types.AccountBalanceRequest,
 ) (*types.AccountBalanceResponse, *types.Error) {
+	log.Printf("START /account/balance")
 	if s.config.Mode != configuration.Online {
 		return nil, ErrUnavailableOffline
 	}
@@ -57,6 +59,7 @@ func (s *AccountAPIService) AccountBalance(
 		return nil, wrapErr(ErrGeth, err)
 	}
 
+	log.Printf("END /account/balance")
 	return balanceResponse, nil
 }
 

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"log"
 	"net/http"
 	"time"
@@ -67,10 +68,10 @@ func runRunCmd(cmd *cobra.Command, args []string) error {
 	// The asserter automatically rejects incorrectly formatted
 	// requests.
 	asserter, err := asserter.NewServer(
-		solanago.OperationTypes,
-		solanago.HistoricalBalanceSupported,
+		stypes.OperationTypes,
+		stypes.HistoricalBalanceSupported,
 		[]*types.NetworkIdentifier{cfg.Network},
-		solanago.CallMethods,
+		stypes.CallMethods,
 		false,
 		"",
 	)

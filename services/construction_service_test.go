@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"testing"
 
 	"crypto/ed25519"
@@ -37,8 +38,8 @@ func TestConstructionServiceSpl(t *testing.T) {
 		Address: "42jb8c6XpQ6KXxJEHSWPeoFvyrhuiGvcCJQKumdtW78v",
 	}
 	cSol := &types.Currency{
-		Symbol:   solanago.Currency.Symbol,
-		Decimals: solanago.Currency.Decimals,
+		Symbol:   stypes.Currency.Symbol,
+		Decimals: stypes.Currency.Decimals,
 	}
 	mNil := map[string]interface{}{}
 
@@ -46,7 +47,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 		OperationIdentifier: &types.OperationIdentifier{
 			Index: 0,
 		},
-		Type:    solanago.SplAssociatedTokenAccount__Create,
+		Type:    stypes.SplAssociatedTokenAccount__Create,
 		Account: fromSystem,
 		Metadata: map[string]interface{}{
 			"wallet": "42jb8c6XpQ6KXxJEHSWPeoFvyrhuiGvcCJQKumdtW78v",
@@ -59,7 +60,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 		OperationIdentifier: &types.OperationIdentifier{
 			Index: 0,
 		},
-		Type:    solanago.System__Transfer,
+		Type:    stypes.System__Transfer,
 		Account: fromSystem,
 		Amount: &types.Amount{
 			Value:    "-1",
@@ -70,7 +71,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 		OperationIdentifier: &types.OperationIdentifier{
 			Index: 1,
 		},
-		Type:    solanago.System__Transfer,
+		Type:    stypes.System__Transfer,
 		Account: toSystem,
 		Amount: &types.Amount{
 			Value:    "1",
@@ -81,7 +82,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 		OperationIdentifier: &types.OperationIdentifier{
 			Index: 2,
 		},
-		Type:    solanago.SplToken__Transfer,
+		Type:    stypes.SplToken__Transfer,
 		Account: fromToken,
 		Amount: &types.Amount{
 			Value:    "-1",
@@ -92,7 +93,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 		OperationIdentifier: &types.OperationIdentifier{
 			Index: 3,
 		},
-		Type:    solanago.SplToken__Transfer,
+		Type:    stypes.SplToken__Transfer,
 		Account: toToken,
 		Amount: &types.Amount{
 			Value:    "1",
@@ -108,7 +109,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 			OperationIdentifier: &types.OperationIdentifier{
 				Index: 0,
 			},
-			Type:    solanago.SplToken__TransferNew,
+			Type:    stypes.SplToken__TransferNew,
 			Account: fromToken,
 			Amount: &types.Amount{
 				Value:    "-1",
@@ -119,7 +120,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 			OperationIdentifier: &types.OperationIdentifier{
 				Index: 1,
 			},
-			Type: solanago.SplToken__TransferNew,
+			Type: stypes.SplToken__TransferNew,
 			Account: &types.AccountIdentifier{
 				Address: "9o8WJKYkm71RoGdBziUEPnpPCyW3TgaRpagxBDA9qiiY",
 			}, //systemaccount
@@ -137,7 +138,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 			OperationIdentifier: &types.OperationIdentifier{
 				Index: 0,
 			},
-			Type:    solanago.SplToken__TransferWithSystem,
+			Type:    stypes.SplToken__TransferWithSystem,
 			Account: fromSystem,
 			Amount: &types.Amount{
 				Value:    "-1",
@@ -148,7 +149,7 @@ func TestConstructionServiceSpl(t *testing.T) {
 			OperationIdentifier: &types.OperationIdentifier{
 				Index: 1,
 			},
-			Type: solanago.SplToken__TransferWithSystem,
+			Type: stypes.SplToken__TransferWithSystem,
 			Account: &types.AccountIdentifier{
 				Address: "CZDpZ7KeMansnszdEGZ55C4HjGsMSQBzxPu6jqRm6ZrU",
 			}, //systemaccount
@@ -168,10 +169,10 @@ func constructionPipe(t *testing.T, ops []*types.Operation, submit bool) {
 	cfg := configuration.Configuration{
 		Mode: "ONLINE",
 		Network: &types.NetworkIdentifier{
-			Blockchain: solanago.Blockchain,
-			Network:    solanago.DevnetNetwork,
+			Blockchain: stypes.Blockchain,
+			Network:    stypes.DevnetNetwork,
 		},
-		GenesisBlockIdentifier: solanago.TestnetGenesisBlockIdentifier,
+		GenesisBlockIdentifier: stypes.TestnetGenesisBlockIdentifier,
 		GethURL:                "https://api.devnet.solana.com",
 		RemoteGeth:             false,
 		Port:                   0,
@@ -234,7 +235,7 @@ func constructionPipe(t *testing.T, ops []*types.Operation, submit bool) {
 	fmt.Println("Parsed")
 	fmt.Println(string(s1))
 
-	if !(ops[0].Type == solanago.SplToken__TransferNew || ops[0].Type == solanago.SplToken__TransferWithSystem) {
+	if !(ops[0].Type == stypes.SplToken__TransferNew || ops[0].Type == stypes.SplToken__TransferWithSystem) {
 		assert.Equal(t, ops[0].Type, parseRes.Operations[0].Type)
 		assert.Equal(t, len(ops), len(parseRes.Operations))
 
@@ -246,8 +247,8 @@ func constructionPipe(t *testing.T, ops []*types.Operation, submit bool) {
 			assert.Equal(t, ops[0].Amount.Currency.Symbol, parseRes.Operations[0].Amount.Currency.Symbol)
 		}
 	} else {
-		if ops[0].Type == solanago.SplToken__TransferNew {
-			assert.Equal(t, parseRes.Operations[0].Type, solanago.SplAssociatedTokenAccount__Create)
+		if ops[0].Type == stypes.SplToken__TransferNew {
+			assert.Equal(t, parseRes.Operations[0].Type, stypes.SplAssociatedTokenAccount__Create)
 			assert.Equal(t, len(parseRes.Operations), 3)
 		}
 	}

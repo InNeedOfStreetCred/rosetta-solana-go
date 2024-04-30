@@ -17,12 +17,12 @@ package configuration
 import (
 	"errors"
 	"fmt"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"os"
 	"strconv"
 
+	rpc "github.com/blocto/solana-go-sdk/rpc"
 	"github.com/coinbase/rosetta-sdk-go/types"
-	solanago "github.com/imerkle/rosetta-solana-go/solana"
-	ss "github.com/portto/solana-go-sdk/client"
 )
 
 // Mode is the setting that determines if
@@ -103,25 +103,25 @@ func LoadConfiguration() (*Configuration, error) {
 	switch networkValue {
 	case Mainnet:
 		config.Network = &types.NetworkIdentifier{
-			Blockchain: solanago.Blockchain,
-			Network:    solanago.MainnetNetwork,
+			Blockchain: stypes.Blockchain,
+			Network:    stypes.MainnetNetwork,
 		}
-		config.GenesisBlockIdentifier = solanago.MainnetGenesisBlockIdentifier
-		config.GethURL = ss.MainnetRPCEndpoint
+		config.GenesisBlockIdentifier = stypes.MainnetGenesisBlockIdentifier
+		config.GethURL = rpc.MainnetRPCEndpoint
 	case Testnet:
 		config.Network = &types.NetworkIdentifier{
-			Blockchain: solanago.Blockchain,
-			Network:    solanago.TestnetNetwork,
+			Blockchain: stypes.Blockchain,
+			Network:    stypes.TestnetNetwork,
 		}
-		config.GenesisBlockIdentifier = solanago.TestnetGenesisBlockIdentifier
-		config.GethURL = ss.TestnetRPCEndpoint
+		config.GenesisBlockIdentifier = stypes.TestnetGenesisBlockIdentifier
+		config.GethURL = rpc.TestnetRPCEndpoint
 	case Devnet:
 		config.Network = &types.NetworkIdentifier{
-			Blockchain: solanago.Blockchain,
-			Network:    solanago.DevnetNetwork,
+			Blockchain: stypes.Blockchain,
+			Network:    stypes.DevnetNetwork,
 		}
-		config.GenesisBlockIdentifier = solanago.TestnetGenesisBlockIdentifier
-		config.GethURL = ss.DevnetRPCEndpoint
+		config.GenesisBlockIdentifier = stypes.TestnetGenesisBlockIdentifier
+		config.GethURL = rpc.DevnetRPCEndpoint
 	case "":
 		return nil, errors.New("NETWORK must be populated")
 	default:

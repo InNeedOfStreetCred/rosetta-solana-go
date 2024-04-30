@@ -16,12 +16,11 @@ package services
 
 import (
 	"context"
-
-	"github.com/imerkle/rosetta-solana-go/configuration"
-	solanago "github.com/imerkle/rosetta-solana-go/solana"
-
 	"github.com/coinbase/rosetta-sdk-go/asserter"
 	"github.com/coinbase/rosetta-sdk-go/types"
+	"github.com/imerkle/rosetta-solana-go/configuration"
+	solanago "github.com/imerkle/rosetta-solana-go/solana"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 )
 
 // NetworkAPIService implements the server.NetworkAPIServicer interface.
@@ -58,16 +57,16 @@ func (s *NetworkAPIService) NetworkOptions(
 ) (*types.NetworkOptionsResponse, *types.Error) {
 	return &types.NetworkOptionsResponse{
 		Version: &types.Version{
-			NodeVersion:       solanago.NodeVersion,
+			NodeVersion:       stypes.NodeVersion,
 			RosettaVersion:    types.RosettaAPIVersion,
 			MiddlewareVersion: types.String(configuration.MiddlewareVersion),
 		},
 		Allow: &types.Allow{
 			Errors:                  Errors,
-			OperationTypes:          solanago.OperationTypes,
-			OperationStatuses:       solanago.OperationStatuses,
-			HistoricalBalanceLookup: solanago.HistoricalBalanceSupported,
-			CallMethods:             solanago.CallMethods,
+			OperationTypes:          stypes.OperationTypes,
+			OperationStatuses:       stypes.OperationStatuses,
+			HistoricalBalanceLookup: stypes.HistoricalBalanceSupported,
+			CallMethods:             stypes.CallMethods,
 		},
 	}, nil
 }

@@ -2,12 +2,13 @@ package operations
 
 import (
 	"encoding/json"
+	"github.com/blocto/solana-go-sdk/program/stake"
+	"github.com/blocto/solana-go-sdk/program/stakeprog"
+	"github.com/blocto/solana-go-sdk/program/system"
+	solPTypes "github.com/blocto/solana-go-sdk/types"
 	types "github.com/coinbase/rosetta-sdk-go/types"
 	solanago "github.com/imerkle/rosetta-solana-go/solana"
-	"github.com/portto/solana-go-sdk/common"
-	"github.com/portto/solana-go-sdk/stakeprog"
-	"github.com/portto/solana-go-sdk/sysprog"
-	solPTypes "github.com/portto/solana-go-sdk/types"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"log"
 )
 
@@ -31,7 +32,7 @@ type StakeOperationMetadata struct {
 	MicroLamportsUnitPrice uint64 `json:"micro_lamports_unit_price,omitempty"`
 }
 
-func (x *StakeOperationMetadata) SetMeta(op *types.Operation, fee solanago.PriorityFee) {
+func (x *StakeOperationMetadata) SetMeta(op *types.Operation, fee stypes.PriorityFee) {
 	jsonString, _ := json.Marshal(op.Metadata)
 	json.Unmarshal(jsonString, &x)
 	if x.Lamports == 0 && op.Amount != nil {
@@ -58,51 +59,59 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 	var ins []solPTypes.Instruction
 	ins = AddSetComputeUnitPriceParam(x.MicroLamportsUnitPrice, ins)
 	switch opType {
-	case solanago.Stake__CreateStakeAccount:
+	case stypes.Stake__CreateStakeAccount:
 		ins = addCreateStakeAccountIns(ins, x)
 		break
-	case solanago.Stake__DelegateStake:
+	case stypes.Stake__DelegateStake:
 		ins = addDelegateStakeIns(ins, x)
 		break
-	case solanago.Stake__CreateStakeAndDelegate:
+	case stypes.Stake__CreateStakeAndDelegate:
 		ins = addCreateStakeAccountIns(ins, x)
 		ins = addDelegateStakeIns(ins, x)
 		break
-	case solanago.Stake__DeactivateStake:
-		ins = append(ins, stakeprog.Deactivate(p(x.Stake), p(x.Staker)))
+	case stypes.Stake__DeactivateStake:
+		ins = append(ins, stake.Deactivate(stake.DeactivateParam{Stake: p(x.Stake), Auth: p(x.Staker)}))
 		break
-	case solanago.Stake__WithdrawStake:
+	case stypes.Stake__WithdrawStake:
+		lockupCustodian := p(x.LockupCustodian)
 		ins = append(ins,
-			stakeprog.Withdraw(
-				p(x.Stake),
-				p(x.Withdrawer),
-				p(x.WithdrawDestination),
-				x.Lamports,
-				p(x.LockupCustodian)))
+			stake.Withdraw(
+				stake.WithdrawParam{
+					Stake:     p(x.Stake),
+					Auth:      p(x.Withdrawer),
+					To:        p(x.WithdrawDestination),
+					Lamports:  x.Lamports,
+					Custodian: &lockupCustodian}))
 		break
-	case solanago.Stake__Merge:
+	case stypes.Stake__Merge:
 		ins = append(ins,
-			stakeprog.Merge(
-				p(x.MergeDestination),
-				p(x.Stake),
-				p(x.Staker)))
+			stake.Merge(
+				stake.MergeParam{
+					p(x.MergeDestination),
+					p(x.Stake),
+					p(x.Staker),
+				}))
 		break
-	case solanago.Stake__Split:
+	case stypes.Stake__Split:
 		ins = append(ins,
-			stakeprog.Split(
-				p(x.Stake),
-				p(x.Staker),
-				p(x.SplitDestination),
-				x.Lamports))
+			stake.Split(
+				stake.SplitParam{
+					Stake:      p(x.Stake),
+					Auth:       p(x.Staker),
+					SplitStake: p(x.SplitDestination),
+					Lamports:   x.Lamports}))
 		break
-	case solanago.Stake__Authorize:
+	case stypes.Stake__Authorize:
+		lockupCustodian := p(x.LockupCustodian)
 		ins = append(ins,
-			stakeprog.Authorize(
-				p(x.Stake),
-				p(x.Authority),
-				p(x.NewAuthority),
-				stakeprog.StakeAuthorizationType(x.StakeAuthorizationType),
-				p(x.LockupCustodian)))
+			stake.Authorize(
+				stake.AuthorizeParam{
+					Stake:     p(x.Stake),
+					Auth:      p(x.Authority),
+					NewAuth:   p(x.NewAuthority),
+					AuthType:  stake.StakeAuthorizationType(x.StakeAuthorizationType),
+					Custodian: &lockupCustodian,
+				}))
 		break
 	}
 
@@ -124,27 +133,29 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 
 func addCreateStakeAccountIns(ins []solPTypes.Instruction, x *StakeOperationMetadata) []solPTypes.Instruction {
 	ins = append(ins,
-		sysprog.CreateAccount(
-			p(x.Source),
-			p(x.Stake),
-			common.StakeProgramID,
-			x.Lamports,
-			stakeprog.AccountSize))
+		system.CreateAccount(
+			system.CreateAccountParam{
+				From:     p(x.Source),
+				New:      p(x.Stake),
+				Lamports: x.Lamports,
+				Space:    stakeprog.AccountSize}))
 	ins = append(ins,
-		stakeprog.Initialize(
-			p(x.Stake),
-			stakeprog.Authorized{
-				Staker:     p(x.Staker),
-				Withdrawer: p(x.Withdrawer),
-			},
-			stakeprog.Lockup{
-				UnixTimestamp: x.LockupUnixTimestamp,
-				Epoch:         x.LockupEpoch,
-				Cusodian:      p(x.LockupCustodian),
-			}))
+		stake.Initialize(
+			stake.InitializeParam{
+				Stake: p(x.Stake),
+				Auth: stake.Authorized{
+					Staker:     p(x.Staker),
+					Withdrawer: p(x.Withdrawer),
+				},
+				Lockup: stake.Lockup{
+					UnixTimestamp: x.LockupUnixTimestamp,
+					Epoch:         x.LockupEpoch,
+					Cusodian:      p(x.LockupCustodian),
+				}}),
+	)
 	return ins
 }
 
 func addDelegateStakeIns(ins []solPTypes.Instruction, x *StakeOperationMetadata) []solPTypes.Instruction {
-	return append(ins, stakeprog.DelegateStake(p(x.Stake), p(x.Staker), p(x.VoteAccount)))
+	return append(ins, stake.DelegateStake(stake.DelegateStakeParam{Stake: p(x.Stake), Auth: p(x.Staker), Vote: p(x.VoteAccount)}))
 }

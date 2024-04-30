@@ -1,9 +1,9 @@
 package operations
 
 import (
+	"github.com/blocto/solana-go-sdk/common"
+	solPTypes "github.com/blocto/solana-go-sdk/types"
 	"github.com/near/borsh-go"
-	"github.com/portto/solana-go-sdk/common"
-	solPTypes "github.com/portto/solana-go-sdk/types"
 	"log"
 )
 

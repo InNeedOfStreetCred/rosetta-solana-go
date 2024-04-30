@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 )
 
-// *JSONMap functions are needed because `types.MarshalMap/types.UnmarshalMap`
+// *JSONMap functions are needed because `shared_types.MarshalMap/shared_types.UnmarshalMap`
 // does not respect custom JSON marshalers.
 
 // marshalJSONMap converts an interface into a map[string]interface{}.

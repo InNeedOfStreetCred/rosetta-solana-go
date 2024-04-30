@@ -4,19 +4,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	stypes "github.com/imerkle/rosetta-solana-go/solana/shared_types"
 	"math/big"
 	"strconv"
 	"strings"
 
+	solPTypes "github.com/blocto/solana-go-sdk/types"
 	"github.com/coinbase/rosetta-sdk-go/types"
 	RosettaTypes "github.com/coinbase/rosetta-sdk-go/types"
 	"github.com/mr-tron/base58"
-	"github.com/portto/solana-go-sdk/assotokenprog"
-	ss "github.com/portto/solana-go-sdk/client"
-	common "github.com/portto/solana-go-sdk/common"
-	"github.com/portto/solana-go-sdk/sysprog"
-	"github.com/portto/solana-go-sdk/tokenprog"
-	solPTypes "github.com/portto/solana-go-sdk/types"
 
 	"github.com/iancoleman/strcase"
 )
@@ -24,7 +20,7 @@ import (
 func IsBalanceChanging(opType string) bool {
 	a := false
 	switch opType {
-	case System__CreateAccount, System__WithdrawFromNonce, System__Transfer, SplToken__Transfer, SplToken__TransferChecked, "Stake__Split", "Stake__Withdraw", "Vote__Withdraw", SplToken__TransferNew, SplToken__TransferWithSystem:
+	case stypes.System__CreateAccount, stypes.System__WithdrawFromNonce, stypes.System__Transfer, stypes.SplToken__Transfer, stypes.SplToken__TransferChecked, "Stake__Split", "Stake__Withdraw", "Vote__Withdraw", stypes.SplToken__TransferNew, stypes.SplToken__TransferWithSystem:
 		a = true
 	}
 	return a
@@ -35,22 +31,22 @@ func getOperationTypeWithProgram(program string, s string) string {
 
 	newStr := fmt.Sprint(
 		toPascal,
-		Separator,
+		stypes.Separator,
 		strcase.ToCamel(s),
 	)
 	return newStr
 }
 func getOperationType(s string) string {
-	x := strings.Split(s, Separator)
+	x := strings.Split(s, stypes.Separator)
 	if len(x) < 2 {
-		return Unknown
+		return stypes.Unknown
 	}
 	return getOperationTypeWithProgram(x[0], x[1])
 }
 func split_at(at int, input []byte) ([]byte, []byte) {
 	return input[0:1], input[1:]
 }
-func GetRosOperationsFromTx(tx solPTypes.ParsedTransaction, status string) []*types.Operation {
+func GetRosOperationsFromTx(tx stypes.ParsedTransaction, status string) []*types.Operation {
 	//	hash := tx.Transaction.Signatures[0].String()
 	opIndex := int64(0)
 	var operations []*types.Operation
@@ -68,7 +64,7 @@ func GetRosOperationsFromTx(tx solPTypes.ParsedTransaction, status string) []*ty
 
 			operations = append(operations, &types.Operation{
 				OperationIdentifier: &oi,
-				Type:                Unknown,
+				Type:                stypes.Unknown,
 				Status:              &status,
 				Metadata:            inInterface,
 			})
@@ -76,7 +72,7 @@ func GetRosOperationsFromTx(tx solPTypes.ParsedTransaction, status string) []*ty
 
 			jsonString, _ := json.Marshal(ins.Parsed.Info)
 
-			parsedInstructionMeta := ParsedInstructionMeta{}
+			parsedInstructionMeta := stypes.ParsedInstructionMeta{}
 			var parsedInstructionMetaInterface interface{}
 			json.Unmarshal(jsonString, &parsedInstructionMeta)
 			json.Unmarshal(jsonString, &parsedInstructionMetaInterface)
@@ -86,14 +82,14 @@ func GetRosOperationsFromTx(tx solPTypes.ParsedTransaction, status string) []*ty
 			json.Unmarshal(inrec, &inInterface)
 
 			opType := getOperationTypeWithProgram(ins.Program, ins.Parsed.InstructionType)
-			if !Contains(OperationTypes, opType) {
+			if !Contains(stypes.OperationTypes, opType) {
 				inInterface["instruction_type"] = ins.Parsed.InstructionType
 				inInterface["program"] = ins.Program
 				opType = "Unknown"
 			}
 			if IsBalanceChanging(opType) {
 				if parsedInstructionMeta.Decimals == 0 {
-					parsedInstructionMeta.Decimals = Decimals
+					parsedInstructionMeta.Decimals = stypes.Decimals
 				}
 				if parsedInstructionMeta.Amount == 0 {
 					if parsedInstructionMeta.Lamports == 0 {
@@ -106,8 +102,8 @@ func GetRosOperationsFromTx(tx solPTypes.ParsedTransaction, status string) []*ty
 				if parsedInstructionMeta.Mint == "" {
 					if ins.Program == "system" {
 						currency = types.Currency{
-							Symbol:   Symbol,
-							Decimals: Decimals,
+							Symbol:   stypes.Symbol,
+							Decimals: stypes.Decimals,
 							Metadata: map[string]interface{}{},
 						}
 					}
@@ -204,7 +200,7 @@ func GetRosOperationsFromTx(tx solPTypes.ParsedTransaction, status string) []*ty
 	return operations
 }
 
-func ToRosTxs(txs []ss.ParsedTransactionWithMeta) []*RosettaTypes.Transaction {
+func ToRosTxs(txs []stypes.ParsedTransactionWithMeta) []*RosettaTypes.Transaction {
 	var rtxs []*RosettaTypes.Transaction
 	for _, tx := range txs {
 		rtx := ToRosTx(tx.Transaction)
@@ -212,12 +208,12 @@ func ToRosTxs(txs []ss.ParsedTransactionWithMeta) []*RosettaTypes.Transaction {
 	}
 	return rtxs
 }
-func ToRosTx(tx solPTypes.ParsedTransaction) RosettaTypes.Transaction {
+func ToRosTx(tx stypes.ParsedTransaction) RosettaTypes.Transaction {
 	return RosettaTypes.Transaction{
 		TransactionIdentifier: &RosettaTypes.TransactionIdentifier{
 			Hash: tx.Signatures[0],
 		},
-		Operations: GetRosOperationsFromTx(tx, SuccessStatus),
+		Operations: GetRosOperationsFromTx(tx, stypes.SuccessStatus),
 		Metadata:   map[string]interface{}{},
 	}
 }
@@ -243,10 +239,10 @@ func convertTime(time uint64) int64 {
 	return int64(time) * 1000
 }
 
-func GetWithNonce(m map[string]interface{}) (WithNonce, bool) {
-	var withNonce WithNonce
+func GetWithNonce(m map[string]interface{}) (stypes.WithNonce, bool) {
+	var withNonce stypes.WithNonce
 	hasNonce := false
-	if w, ok := m[WithNonceKey]; ok {
+	if w, ok := m[stypes.WithNonceKey]; ok {
 		j, _ := json.Marshal(w)
 		json.Unmarshal(j, &withNonce)
 		if len(withNonce.Account) > 0 {
@@ -256,9 +252,9 @@ func GetWithNonce(m map[string]interface{}) (WithNonce, bool) {
 	return withNonce, hasNonce
 }
 
-func GetPriorityFee(m map[string]interface{}) PriorityFee {
-	var priorityFee PriorityFee
-	if w, ok := m[PriorityFeeKey]; ok {
+func GetPriorityFee(m map[string]interface{}) stypes.PriorityFee {
+	var priorityFee stypes.PriorityFee
+	if w, ok := m[stypes.PriorityFeeKey]; ok {
 		j, _ := json.Marshal(w)
 		json.Unmarshal(j, &priorityFee)
 	}
@@ -280,67 +276,7 @@ func GetTxFromStr(t string) (solPTypes.Transaction, error) {
 
 	return tx, nil
 }
-func ToParsedTransaction(tx solPTypes.Transaction) (solPTypes.ParsedTransaction, error) {
-	ins := tx.Message.DecompileInstructions()
-	var parsedIns []solPTypes.ParsedInstruction
-	for _, v := range ins {
-		p, err := ParseInstruction(v)
-		if err != nil {
-			//cannot parse
-			p = solPTypes.ParsedInstruction{}
-			return solPTypes.ParsedTransaction{}, err
-		}
-		parsedIns = append(parsedIns, p)
-	}
-	var acckeys []solPTypes.ParsedAccKey
-	var sigs []string
-	for _, v := range tx.Message.Accounts {
-		acckeys = append(acckeys, solPTypes.ParsedAccKey{PubKey: v.ToBase58()})
-	}
-	for _, v := range tx.Signatures {
-		sigs = append(sigs, v.ToBase58())
-	}
-	newTx := solPTypes.ParsedTransaction{
-		Signatures: sigs,
-		Message: solPTypes.ParsedMessage{
-			Header:          tx.Message.Header,
-			AccountKeys:     acckeys,
-			RecentBlockhash: tx.Message.RecentBlockHash,
-			Instructions:    parsedIns,
-		},
-	}
-	return newTx, nil
-}
-func ParseInstruction(ins solPTypes.Instruction) (solPTypes.ParsedInstruction, error) {
-	var parsedInstruction solPTypes.ParsedInstruction
-	var err error
 
-	switch ins.ProgramID {
-	case common.SystemProgramID:
-		parsedInstruction, err = sysprog.ParseSystem(ins)
-		break
-	case common.TokenProgramID:
-		parsedInstruction, err = tokenprog.ParseToken(ins)
-		break
-	case common.SPLAssociatedTokenAccountProgramID:
-		parsedInstruction, err = assotokenprog.ParseAssocToken(ins)
-		break
-	default:
-		//return parsedInstruction, fmt.Errorf("Cannot parse instruction")
-	}
-	if err != nil {
-		return parsedInstruction, err
-	}
-	var accs []string
-	for _, v := range ins.Accounts {
-		accs = append(accs, v.PubKey.ToBase58())
-	}
-	parsedInstruction.Accounts = accs
-	parsedInstruction.Data = base58.Encode(ins.Data[:])
-	parsedInstruction.ProgramID = ins.ProgramID.ToBase58()
-	parsedInstruction.Program = common.GetProgramName(ins.ProgramID)
-	return parsedInstruction, nil
-}
 func ValueToBaseAmount(valueStr string) uint64 {
 	var amount uint64
 	valueStr = strings.Replace(valueStr, "-", "", -1)
