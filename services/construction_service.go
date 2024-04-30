@@ -77,8 +77,15 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 	log.Printf("START /construction/preprocess")
 	log.Printf("request.Metadata=%+v\n", request.Metadata)
 
-	withNonce, _ := solanago.GetWithNonce(request.Metadata)
+	withNonce, hasNonce := solanago.GetWithNonce(request.Metadata)
 	log.Printf("withNonce=%+v\n", withNonce)
+	if hasNonce {
+		log.Printf("inside hasNonce=true")
+		acc, _ := s.directClient.GetAccountInfoParsed(ctx, withNonce.Account)
+		withNonce.Authority = acc.Data.Parsed.Info.Authority
+	} else {
+		log.Printf("inside hasNonce=false")
+	}
 
 	priorityFee := solanago.GetPriorityFee(request.Metadata)
 	log.Printf("priorityFee=%+v\n", priorityFee)
@@ -107,12 +114,48 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 		}
 	}
 
+	var constructionMetaData = ConstructionMetadata{
+		PriorityFee: priorityFee,
+		WithNonce:   withNonce,
+	}
+
+	_, instructions, _ := ToInstructions(request.Operations, constructionMetaData)
+	signers := GetUniqueSigners(instructions)
+	var feeCalculation = stypes.FeeCalculation{
+		NumberOfInstructions: strconv.Itoa(len(instructions)),
+		NumberOfSigners:      strconv.Itoa(len(signers)),
+	}
+	log.Printf("instructions.len=%+v\n", len(instructions))
+
 	log.Printf("END /construction/preprocess")
 	return &types.ConstructionPreprocessResponse{
 		Options: map[string]interface{}{
 			stypes.WithNonceKey:       withNonce,
+			stypes.FeeCalculationKey:  feeCalculation,
 			stypes.PriorityFeeKey:     priorityFee,
 			stypes.SplSystemAccMapKey: SplSystemAccMap,
+		},
+	}, nil
+}
+
+// ConstructionHash implements the /construction/hash endpoint.
+func (s *ConstructionAPIService) ConstructionHash(
+	ctx context.Context,
+	request *types.ConstructionHashRequest,
+) (*types.TransactionIdentifierResponse, *types.Error) {
+	log.Printf("START /construction/hash")
+
+	tx, err := solanago.GetTxFromStr(request.SignedTransaction)
+	if err != nil {
+		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
+	}
+	hash := base58.Encode(tx.Signatures[0])
+
+	log.Printf("hash=%s\n", hash)
+	log.Printf("END /construction/hash")
+	return &types.TransactionIdentifierResponse{
+		TransactionIdentifier: &types.TransactionIdentifier{
+			Hash: hash,
 		},
 	}, nil
 }
@@ -136,6 +179,8 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 
 	priorityFee := solanago.GetPriorityFee(request.Options)
 	log.Printf("priorityFee=%+v\n", priorityFee)
+
+	feeCalculation := solanago.GetFeeCalculation(request.Options)
 
 	if hasNonce {
 		log.Printf("inside hasNonce=true")
@@ -183,6 +228,7 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 		FeeCalculator:     feeCalculator,
 		SplTokenAccMapKey: SplTokenAccMap,
 		WithNonce:         withNonce,
+		FeeCalculation:    feeCalculation,
 	})
 
 	log.Printf("meta=%+v\n", meta)
@@ -199,47 +245,12 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 	}, nil
 }
 
-func FindMatch(ops []*types.Operation, op *types.Operation, matchedOperationHashMap map[int64]bool) (bool, *types.Operation) {
-	if _, ok := matchedOperationHashMap[op.OperationIdentifier.Index]; ok {
-		return true, nil
-	}
-	var matched *types.Operation = nil
-	for _, v := range ops {
-		if op.OperationIdentifier.Index == v.OperationIdentifier.Index {
-			continue
-		}
-		if _, ok := matchedOperationHashMap[v.OperationIdentifier.Index]; ok {
-			continue
-		}
-		if v.Type != op.Type {
-			continue
-		}
-		if v.Amount != nil {
-			if v.Amount.Currency.Symbol != op.Amount.Currency.Symbol {
-				continue
-			}
-			if solanago.ValueToBaseAmount(v.Amount.Value) != solanago.ValueToBaseAmount(op.Amount.Value) {
-				continue
-			} else {
-				opisNegative := strings.Contains(op.Amount.Value, "-")
-				visNegative := strings.Contains(v.Amount.Value, "-")
-				if (opisNegative && visNegative) || (!opisNegative && !visNegative) {
-					continue
-				}
-			}
-		}
-		return false, v
-	}
-	return false, matched
-}
-
 // ConstructionPayloads implements the /construction/payloads endpoint.
 func (s *ConstructionAPIService) ConstructionPayloads(
 	ctx context.Context,
 	request *types.ConstructionPayloadsRequest,
 ) (*types.ConstructionPayloadsResponse, *types.Error) {
 	log.Printf("START /construction/payloads")
-	var instructions []solPTypes.Instruction
 
 	// Convert map to Metadata struct
 	var meta ConstructionMetadata
@@ -250,79 +261,11 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	}
 
 	log.Printf("meta=%+v\n", meta)
+	ops := request.Operations
 
-	var feePayer common.PublicKey
-	var matchedOperationHashMap = make(map[int64]bool)
-	for _, op := range request.Operations {
-		LogOperation(op)
-		var cont bool
-		var matched *types.Operation
-		cont, matched = FindMatch(request.Operations, op, matchedOperationHashMap)
-		if cont {
-			log.Printf("op is alread in matchedOperationHashMap -> continue with next entry")
-			continue
-		}
-
-		if matched == nil && op.Amount != nil {
-			return nil, wrapErr(ErrUnableToParseIntermediateResult, fmt.Errorf("Invalid Operation Request. Please check format"))
-		}
-
-		opCopy, err := copystructure.Copy(*op)
-		if err != nil {
-			return nil, wrapErr(ErrUnclearIntent, fmt.Errorf("Cannot deep copy operations"))
-
-		}
-		tp := opCopy.(types.Operation)
-		tmpOP := &tp
-
-		if tmpOP.Metadata == nil {
-			tmpOP.Metadata = make(map[string]interface{})
-		}
-		if matched != nil {
-			fromOp := tmpOP
-			fromAdd := fromOp.Account.Address
-			toOp := matched
-			toAdd := toOp.Account.Address
-			tmpOP.Account = fromOp.Account
-			tmpOP.Metadata["source"] = fromAdd
-			tmpOP.Metadata["destination"] = toAdd
-			tmpOP.Amount = toOp.Amount
-
-			matchedOperationHashMap[fromOp.OperationIdentifier.Index] = true
-			matchedOperationHashMap[toOp.OperationIdentifier.Index] = true
-
-		} else {
-			matchedOperationHashMap[op.OperationIdentifier.Index] = true
-		}
-
-		log.Printf("tmpOP.Type=%s\n", tmpOP.Type)
-		switch strings.Split(tmpOP.Type, stypes.Separator)[0] {
-		case "System":
-			s := operations.SystemOperationMetadata{}
-			s.SetMeta(tmpOP, meta.PriorityFee)
-			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
-			break
-		case "SplToken":
-			s := operations.SplTokenOperationMetadata{}
-			s.SetMeta(tmpOP, meta.SplTokenAccMapKey)
-			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
-			break
-		case "SplAssociatedTokenAccount":
-			s := operations.SplAssociatedTokenAccountOperationMetadata{}
-			s.SetMeta(tmpOP)
-			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
-			break
-		case "Stake":
-			s := operations.StakeOperationMetadata{}
-			s.SetMeta(tmpOP, meta.PriorityFee)
-			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
-			if tmpOP.Type == stypes.Stake__WithdrawStake && s.FeePayer != "" {
-				feePayer = common.PublicKeyFromString(s.FeePayer)
-			}
-			break
-		default:
-			return nil, wrapErr(ErrUnableToParseIntermediateResult, fmt.Errorf("Operation not implemented for construction"))
-		}
+	feePayer, instructions, toInstructionsErr := ToInstructions(ops, meta)
+	if toInstructionsErr != nil {
+		return nil, toInstructionsErr
 	}
 	signers := GetUniqueSigners(instructions)
 
@@ -332,14 +275,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 
 	blockHash := meta.BlockHash
 	var message solPTypes.Message
-
-	withNonce, hasNonce := solanago.GetWithNonce(request.Metadata)
-	if hasNonce {
-		message = NewMessageWithNonce(feePayer, instructions, common.PublicKeyFromString(withNonce.Account), common.PublicKeyFromString(withNonce.Authority))
-	} else {
-		message = solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: blockHash})
-	}
-	//TODO: use suggestedFee somewhere
+	message = solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: blockHash})
 
 	//unsigned signature
 	var sig []solPTypes.Signature
@@ -379,36 +315,6 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	}, nil
 }
 
-func NewMessageWithNonce(feePayer common.PublicKey, instructions []solPTypes.Instruction, nonceAccountPubkey common.PublicKey, nonceAuthorityPubkey common.PublicKey) solPTypes.Message {
-	ins := system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{nonceAccountPubkey, nonceAuthorityPubkey})
-	instructions = append([]solPTypes.Instruction{ins}, instructions...)
-	message := solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: ""})
-	return message
-}
-
-func GetSigningKeypairPositions(message solPTypes.Message, pubKeys []common.PublicKey) ([]uint, *types.Error) {
-	if len(message.Accounts) < int(message.Header.NumRequireSignatures) {
-		return nil, wrapErr(ErrUnableToParseIntermediateResult, fmt.Errorf("invalid positions"))
-	}
-	signedKeys := message.Accounts[0:message.Header.NumRequireSignatures]
-	var positions []uint
-	for _, p := range pubKeys {
-		index := indexOf(p, signedKeys)
-		if index > -1 {
-			positions = append(positions, uint(index))
-		}
-	}
-	return positions, nil
-}
-func indexOf(element common.PublicKey, data []common.PublicKey) int {
-	for k, v := range data {
-		if element == v {
-			return k
-		}
-	}
-	return -1 //not found.
-}
-
 // ConstructionCombine implements the /construction/combine
 // endpoint.
 func (s *ConstructionAPIService) ConstructionCombine(
@@ -443,45 +349,6 @@ func (s *ConstructionAPIService) ConstructionCombine(
 	return &types.ConstructionCombineResponse{
 		SignedTransaction: base58.Encode(signedTx),
 	}, nil
-}
-
-// ConstructionHash implements the /construction/hash endpoint.
-func (s *ConstructionAPIService) ConstructionHash(
-	ctx context.Context,
-	request *types.ConstructionHashRequest,
-) (*types.TransactionIdentifierResponse, *types.Error) {
-	log.Printf("START /construction/hash")
-
-	tx, err := solanago.GetTxFromStr(request.SignedTransaction)
-	if err != nil {
-		return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
-	}
-	hash := base58.Encode(tx.Signatures[0])
-
-	log.Printf("hash=%s\n", hash)
-	log.Printf("END /construction/hash")
-	return &types.TransactionIdentifierResponse{
-		TransactionIdentifier: &types.TransactionIdentifier{
-			Hash: hash,
-		},
-	}, nil
-}
-
-func GetUniqueSigners(ins []solPTypes.Instruction) []string {
-	var signers []string
-	var signersMap map[string]bool = make(map[string]bool)
-	for _, v := range ins {
-		for _, v1 := range v.Accounts {
-			address := v1.PubKey.ToBase58()
-			if v1.IsSigner {
-				if _, ok := signersMap[address]; !ok {
-					signersMap[address] = true
-					signers = append(signers, address)
-				}
-			}
-		}
-	}
-	return signers
 }
 
 // ConstructionParse implements the /construction/parse endpoint.
@@ -574,4 +441,176 @@ func LogOperation(op *types.Operation) {
 	if op.Metadata != nil {
 		log.Printf("op.Metadata=%s\n", op.Metadata)
 	}
+}
+
+func FindMatch(ops []*types.Operation, op *types.Operation, matchedOperationHashMap map[int64]bool) (bool, *types.Operation) {
+	if _, ok := matchedOperationHashMap[op.OperationIdentifier.Index]; ok {
+		return true, nil
+	}
+	var matched *types.Operation = nil
+	for _, v := range ops {
+		if op.OperationIdentifier.Index == v.OperationIdentifier.Index {
+			continue
+		}
+		if _, ok := matchedOperationHashMap[v.OperationIdentifier.Index]; ok {
+			continue
+		}
+		if v.Type != op.Type {
+			continue
+		}
+		if v.Amount != nil {
+			if v.Amount.Currency.Symbol != op.Amount.Currency.Symbol {
+				continue
+			}
+			if solanago.ValueToBaseAmount(v.Amount.Value) != solanago.ValueToBaseAmount(op.Amount.Value) {
+				continue
+			} else {
+				opisNegative := strings.Contains(op.Amount.Value, "-")
+				visNegative := strings.Contains(v.Amount.Value, "-")
+				if (opisNegative && visNegative) || (!opisNegative && !visNegative) {
+					continue
+				}
+			}
+		}
+		return false, v
+	}
+	return false, matched
+}
+
+func NewMessageWithNonce(feePayer common.PublicKey, instructions []solPTypes.Instruction, nonceAccountPubkey common.PublicKey, nonceAuthorityPubkey common.PublicKey) solPTypes.Message {
+	ins := system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{nonceAccountPubkey, nonceAuthorityPubkey})
+	instructions = append([]solPTypes.Instruction{ins}, instructions...)
+	message := solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: ""})
+	return message
+}
+
+func GetSigningKeypairPositions(message solPTypes.Message, pubKeys []common.PublicKey) ([]uint, *types.Error) {
+	if len(message.Accounts) < int(message.Header.NumRequireSignatures) {
+		return nil, wrapErr(ErrUnableToParseIntermediateResult, fmt.Errorf("invalid positions"))
+	}
+	signedKeys := message.Accounts[0:message.Header.NumRequireSignatures]
+	var positions []uint
+	for _, p := range pubKeys {
+		index := indexOf(p, signedKeys)
+		if index > -1 {
+			positions = append(positions, uint(index))
+		}
+	}
+	return positions, nil
+}
+func indexOf(element common.PublicKey, data []common.PublicKey) int {
+	for k, v := range data {
+		if element == v {
+			return k
+		}
+	}
+	return -1 //not found.
+}
+
+func GetUniqueSigners(ins []solPTypes.Instruction) []string {
+	var signers []string
+	var signersMap = make(map[string]bool)
+	for _, v := range ins {
+		for _, v1 := range v.Accounts {
+			address := v1.PubKey.ToBase58()
+			if v1.IsSigner {
+				if _, ok := signersMap[address]; !ok {
+					signersMap[address] = true
+					signers = append(signers, address)
+				}
+			}
+		}
+	}
+	return signers
+}
+
+func ToInstructions(ops []*types.Operation, meta ConstructionMetadata) (common.PublicKey, []solPTypes.Instruction, *types.Error) {
+	var instructions []solPTypes.Instruction
+	var feePayer common.PublicKey
+	var matchedOperationHashMap = make(map[int64]bool)
+	var withNonce = meta.WithNonce
+
+	// If a nonce is specified we have to advance it
+	if (withNonce != stypes.WithNonce{}) {
+		log.Printf("ToInstructions withNonce=%+v\n", withNonce)
+		ins := system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{p(withNonce.Account), p(withNonce.Authority)})
+		instructions = append([]solPTypes.Instruction{ins}, instructions...)
+	}
+
+	for _, op := range ops {
+		LogOperation(op)
+		var cont bool
+		var matched *types.Operation
+		cont, matched = FindMatch(ops, op, matchedOperationHashMap)
+		if cont {
+			log.Printf("op is alread in matchedOperationHashMap -> continue with next entry")
+			continue
+		}
+
+		if matched == nil && op.Amount != nil {
+			return common.PublicKey{}, nil, wrapErr(ErrUnableToParseIntermediateResult, fmt.Errorf("Invalid Operation Request. Please check format"))
+		}
+
+		opCopy, err := copystructure.Copy(*op)
+		if err != nil {
+			return common.PublicKey{}, nil, wrapErr(ErrUnclearIntent, fmt.Errorf("Cannot deep copy operations"))
+
+		}
+		tp := opCopy.(types.Operation)
+		tmpOP := &tp
+
+		if tmpOP.Metadata == nil {
+			tmpOP.Metadata = make(map[string]interface{})
+		}
+		if matched != nil {
+			fromOp := tmpOP
+			fromAdd := fromOp.Account.Address
+			toOp := matched
+			toAdd := toOp.Account.Address
+			tmpOP.Account = fromOp.Account
+			tmpOP.Metadata["source"] = fromAdd
+			tmpOP.Metadata["destination"] = toAdd
+			tmpOP.Amount = toOp.Amount
+
+			matchedOperationHashMap[fromOp.OperationIdentifier.Index] = true
+			matchedOperationHashMap[toOp.OperationIdentifier.Index] = true
+
+		} else {
+			matchedOperationHashMap[op.OperationIdentifier.Index] = true
+		}
+
+		log.Printf("tmpOP.Type=%s\n", tmpOP.Type)
+		switch strings.Split(tmpOP.Type, stypes.Separator)[0] {
+		case "System":
+			s := operations.SystemOperationMetadata{}
+			s.SetMeta(tmpOP, meta.PriorityFee)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
+			break
+		case "SplToken":
+			s := operations.SplTokenOperationMetadata{}
+			s.SetMeta(tmpOP, meta.SplTokenAccMapKey)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
+			break
+		case "SplAssociatedTokenAccount":
+			s := operations.SplAssociatedTokenAccountOperationMetadata{}
+			s.SetMeta(tmpOP)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
+			break
+		case "Stake":
+			s := operations.StakeOperationMetadata{}
+			s.SetMeta(tmpOP, meta.PriorityFee)
+			instructions = append(instructions, s.ToInstructions(tmpOP.Type)...)
+			if tmpOP.Type == stypes.Stake__WithdrawStake && s.FeePayer != "" {
+				feePayer = common.PublicKeyFromString(s.FeePayer)
+			}
+			break
+		default:
+			return common.PublicKey{}, nil, wrapErr(ErrUnableToParseIntermediateResult, fmt.Errorf("Operation not implemented for construction"))
+		}
+	}
+	return feePayer, instructions, nil
+}
+
+func p(a string) common.PublicKey {
+	return common.PublicKeyFromString(a)
 }

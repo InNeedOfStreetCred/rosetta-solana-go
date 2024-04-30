@@ -68,6 +68,7 @@ const (
 	Separator          = "__"
 	WithNonceKey       = "with_nonce"
 	PriorityFeeKey     = "priority_fee"
+	FeeCalculationKey  = "fee_calculation"
 	SplSystemAccMapKey = "spl_system_acc_map"
 	SplTokenAccMapKey  = "spl_token_acc_map"
 
@@ -236,6 +237,11 @@ type WithNonce struct {
 
 type PriorityFee struct {
 	MicroLamports string `json:"microLamports"`
+}
+
+type FeeCalculation struct {
+	NumberOfInstructions string `json:"numberOfInstructions"`
+	NumberOfSigners      string `json:"number"`
 }
 
 type SplAccounts struct {

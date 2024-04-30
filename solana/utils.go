@@ -260,6 +260,16 @@ func GetPriorityFee(m map[string]interface{}) stypes.PriorityFee {
 	}
 	return priorityFee
 }
+
+func GetFeeCalculation(m map[string]interface{}) stypes.FeeCalculation {
+	var feeCalculation stypes.FeeCalculation
+	if w, ok := m[stypes.FeeCalculationKey]; ok {
+		j, _ := json.Marshal(w)
+		json.Unmarshal(j, &feeCalculation)
+	}
+	return feeCalculation
+}
+
 func GetTxFromStr(t string) (solPTypes.Transaction, error) {
 	signedTx, err := base58.Decode(t)
 	if err != nil {

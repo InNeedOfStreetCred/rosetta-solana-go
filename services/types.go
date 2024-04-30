@@ -59,6 +59,7 @@ type ConstructionMetadata struct {
 	FeeCalculator     stypes.FeeCalculator          `json:"fee_calculator"`
 	SplTokenAccMapKey map[string]stypes.SplAccounts `json:"spl_token_acc_map"`
 	WithNonce         stypes.WithNonce              `json:"with_nonce"`
+	FeeCalculation    stypes.FeeCalculation         `json:"fee_calculation,omitempty"`
 }
 
 type MetadataWithFee struct {
