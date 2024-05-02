@@ -148,26 +148,26 @@ func (ec *Client) Balance(
 		Metadata: nil,
 	}
 
-	tokenAccs, err := ec.directClient.GetTokenAccountsByOwner(ctx, account.Address)
-	log.Printf("after directClient.GetTokenAccountsByOwner")
-	if err == nil {
-		for _, tokenAcc := range tokenAccs {
-			symbol := tokenAcc.Account.Data.Parsed.Info.Mint
-			b := &RosettaTypes.Amount{
-				Value: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Amount,
-				Currency: &RosettaTypes.Currency{
-					Symbol:   symbol,
-					Decimals: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Decimals,
-					Metadata: nil,
-				},
-				Metadata: nil,
-			}
-			balances = append(balances, b)
-		}
-	}
-	if len(symbols) == 0 || Contains(symbols, shared_types.Symbol) {
-		balances = append(balances, nativeBalance)
-	}
+	//tokenAccs, err := ec.directClient.GetTokenAccountsByOwner(ctx, account.Address)
+	//log.Printf("after directClient.GetTokenAccountsByOwner")
+	//if err == nil {
+	//	for _, tokenAcc := range tokenAccs {
+	//		symbol := tokenAcc.Account.Data.Parsed.Info.Mint
+	//		b := &RosettaTypes.Amount{
+	//			Value: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Amount,
+	//			Currency: &RosettaTypes.Currency{
+	//				Symbol:   symbol,
+	//				Decimals: tokenAcc.Account.Data.Parsed.Info.TokenAmount.Decimals,
+	//				Metadata: nil,
+	//			},
+	//			Metadata: nil,
+	//		}
+	//		balances = append(balances, b)
+	//	}
+	//}
+	//if len(symbols) == 0 || Contains(symbols, shared_types.Symbol) {
+	balances = append(balances, nativeBalance)
+	//}
 	slot, err := ec.Rpc.GetSlot(ctx)
 
 	log.Printf("END Balance")
