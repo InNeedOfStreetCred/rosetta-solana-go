@@ -127,7 +127,7 @@ func (ec *Client) Balance(
 	block *RosettaTypes.PartialBlockIdentifier,
 ) (*RosettaTypes.AccountBalanceResponse, error) {
 	log.Printf("START Balance")
-	var symbols []string
+	//var symbols []string
 	if block != nil {
 		return nil, fmt.Errorf("block hash balance not supported")
 	}
