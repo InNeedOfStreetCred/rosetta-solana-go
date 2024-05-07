@@ -120,7 +120,10 @@ func (s *ConstructionAPIService) ConstructionPreprocess(
 	}
 
 	_, instructions, _ := ToInstructions(request.Operations, constructionMetaData)
+
+	instructions = AdvanceNonce(withNonce, instructions)
 	signers := GetUniqueSigners(instructions)
+
 	var feeCalculation = stypes.FeeCalculation{
 		NumberOfInstructions: strconv.Itoa(len(instructions)),
 		NumberOfSigners:      strconv.Itoa(len(signers)),
@@ -267,6 +270,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	if toInstructionsErr != nil {
 		return nil, toInstructionsErr
 	}
+	// this list is without the nonce-advance and so we can use the first signer as the default if needed
 	signers := GetUniqueSigners(instructions)
 
 	if feePayer == (common.PublicKey{}) {
@@ -275,7 +279,14 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 
 	blockHash := meta.BlockHash
 	var message solPTypes.Message
-	message = solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: blockHash})
+
+	instructions = AdvanceNonce(meta.WithNonce, instructions)
+	_, hasNonce := solanago.GetWithNonce(request.Metadata)
+	if hasNonce {
+		message = solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: ""})
+	} else {
+		message = solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: blockHash})
+	}
 
 	//unsigned signature
 	var sig []solPTypes.Signature
@@ -291,7 +302,7 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 	msgBytes, _ := tx.Message.Serialize()
 	var signingPayloads []*types.SigningPayload
 	for _, sg := range signers {
-		log.Printf("sg=%+v", sg)
+		log.Printf("signer=%+v", sg)
 		signingPayloads = append(signingPayloads, &types.SigningPayload{
 			AccountIdentifier: &types.AccountIdentifier{
 				Address: sg,
@@ -313,6 +324,16 @@ func (s *ConstructionAPIService) ConstructionPayloads(
 		UnsignedTransaction: base58.Encode(txUnsigned),
 		Payloads:            signingPayloads,
 	}, nil
+}
+
+func AdvanceNonce(withNonce stypes.WithNonce, instructions []solPTypes.Instruction) []solPTypes.Instruction {
+	// If a nonce is specified we have to advance it
+	if (withNonce != stypes.WithNonce{}) {
+		log.Printf("ToInstructions withNonce=%+v\n", withNonce)
+		ins := system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{p(withNonce.Account), p(withNonce.Authority)})
+		instructions = append([]solPTypes.Instruction{ins}, instructions...)
+	}
+	return instructions
 }
 
 // ConstructionCombine implements the /construction/combine
@@ -478,8 +499,8 @@ func FindMatch(ops []*types.Operation, op *types.Operation, matchedOperationHash
 }
 
 func NewMessageWithNonce(feePayer common.PublicKey, instructions []solPTypes.Instruction, nonceAccountPubkey common.PublicKey, nonceAuthorityPubkey common.PublicKey) solPTypes.Message {
-	ins := system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{nonceAccountPubkey, nonceAuthorityPubkey})
-	instructions = append([]solPTypes.Instruction{ins}, instructions...)
+	//ins := system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{nonceAccountPubkey, nonceAuthorityPubkey})
+	//instructions = append([]solPTypes.Instruction{ins}, instructions...)
 	message := solPTypes.NewMessage(solPTypes.NewMessageParam{FeePayer: feePayer, Instructions: instructions, RecentBlockhash: ""})
 	return message
 }
@@ -525,17 +546,10 @@ func GetUniqueSigners(ins []solPTypes.Instruction) []string {
 }
 
 func ToInstructions(ops []*types.Operation, meta ConstructionMetadata) (common.PublicKey, []solPTypes.Instruction, *types.Error) {
+	log.Printf("START ToInstructions")
 	var instructions []solPTypes.Instruction
 	var feePayer common.PublicKey
 	var matchedOperationHashMap = make(map[int64]bool)
-	var withNonce = meta.WithNonce
-
-	// If a nonce is specified we have to advance it
-	if (withNonce != stypes.WithNonce{}) {
-		log.Printf("ToInstructions withNonce=%+v\n", withNonce)
-		ins := system.AdvanceNonceAccount(system.AdvanceNonceAccountParam{p(withNonce.Account), p(withNonce.Authority)})
-		instructions = append([]solPTypes.Instruction{ins}, instructions...)
-	}
 
 	for _, op := range ops {
 		LogOperation(op)
@@ -608,6 +622,20 @@ func ToInstructions(ops []*types.Operation, meta ConstructionMetadata) (common.P
 			return common.PublicKey{}, nil, wrapErr(ErrUnableToParseIntermediateResult, fmt.Errorf("Operation not implemented for construction"))
 		}
 	}
+
+	log.Printf("There are in total %v instructions", len(instructions))
+	for i, in := range instructions {
+		log.Printf("instruction with i=%v", i)
+		log.Printf("in.ProgramID=%v", in.ProgramID.ToBase58())
+		if (in.Accounts != nil) && (len(in.Accounts) > 0) {
+			for _, account := range in.Accounts {
+				log.Printf("account.PubKey=%v, IsSigner=%v, IsWritable=%v", account.PubKey.ToBase58(), account.IsSigner, account.IsWritable)
+			}
+		}
+		log.Printf("in.Data=%v", in.Data)
+	}
+
+	log.Printf("END ToInstructions")
 	return feePayer, instructions, nil
 }
 

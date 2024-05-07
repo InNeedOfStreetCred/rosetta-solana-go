@@ -53,7 +53,7 @@ func (x *StakeOperationMetadata) SetMeta(op *types.Operation, fee stypes.Priorit
 	log.Printf("microLamportsUnitPrice=%v", x.MicroLamportsUnitPrice)
 }
 func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instruction {
-	log.Printf("START ToInstructions")
+	log.Printf("START stake ToInstructions")
 	log.Printf("opType=%v", opType)
 
 	var ins []solPTypes.Instruction
@@ -127,7 +127,7 @@ func (x *StakeOperationMetadata) ToInstructions(opType string) []solPTypes.Instr
 		log.Printf("in.Data=%v", in.Data)
 	}
 
-	log.Printf("END ToInstructions")
+	log.Printf("END stake ToInstructions")
 	return ins
 }
 

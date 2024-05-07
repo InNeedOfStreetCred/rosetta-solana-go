@@ -40,7 +40,7 @@ func (x *SystemOperationMetadata) SetMeta(op *types.Operation, fee stypes.Priori
 	log.Printf("microLamportsUnitPrice=%v", x.MicroLamportsUnitPrice)
 }
 func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Instruction {
-	log.Printf("START ToInstructions")
+	log.Printf("START system ToInstructions")
 	log.Printf("opType=%v", opType)
 
 	var ins []solPTypes.Instruction
@@ -99,6 +99,6 @@ func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Inst
 		log.Printf("in.Data=%v", in.Data)
 	}
 
-	log.Printf("END ToInstructions")
+	log.Printf("END system ToInstructions")
 	return ins
 }
