@@ -70,7 +70,7 @@ func (x *SplTokenOperationMetadata) ToInstructions(opType string) []solPTypes.In
 	//		ins = append(ins, tokenprog.InitializeMint(x.Decimals, p(x.Mint), p(x.Source), p(x.Authority)))
 	//		break
 	case stypes.SplToken__CreateAccount:
-		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Lamports: x.Amount, Space: tokenprog.TokenAccountSize}))
+		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Owner: common.TokenProgramID, Lamports: x.Amount, Space: tokenprog.TokenAccountSize}))
 		ins = append(ins, token.InitializeAccount(token.InitializeAccountParam{Account: p(x.Destination), Mint: p(x.Mint), Owner: p(x.Authority)}))
 
 		break

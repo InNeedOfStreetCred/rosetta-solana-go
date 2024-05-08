@@ -48,10 +48,10 @@ func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Inst
 	switch opType {
 	case stypes.System__CreateAccount:
 		log.Printf("System__CreateAccount adding CreateAccount")
-		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Lamports: x.Lamports, Space: x.Space}))
+		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Owner: common.TokenProgramID, Lamports: x.Lamports, Space: x.Space}))
 		break
 	case stypes.System__Assign:
-		ins = append(ins, system.Assign(system.AssignParam{From: p(x.Source)}))
+		ins = append(ins, system.Assign(system.AssignParam{From: p(x.Source), Owner: common.TokenProgramID}))
 		break
 	case stypes.System__Transfer:
 
@@ -60,7 +60,7 @@ func (x *SystemOperationMetadata) ToInstructions(opType string) []solPTypes.Inst
 		break
 	case stypes.System__CreateNonceAccount:
 		log.Printf("System__CreateNonceAccount adding CreateAccount")
-		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Lamports: x.Lamports, Space: sysprog.NonceAccountSize}))
+		ins = append(ins, system.CreateAccount(system.CreateAccountParam{From: p(x.Source), New: p(x.Destination), Owner: common.SystemProgramID, Lamports: x.Lamports, Space: sysprog.NonceAccountSize}))
 		log.Printf("System__CreateNonceAccount adding InitializeNonceAccount")
 		ins = append(ins, solPTypes.Instruction{
 			Accounts: []solPTypes.AccountMeta{
