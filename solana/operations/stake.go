@@ -2,6 +2,7 @@ package operations
 
 import (
 	"encoding/json"
+	"github.com/blocto/solana-go-sdk/common"
 	"github.com/blocto/solana-go-sdk/program/stake"
 	"github.com/blocto/solana-go-sdk/program/stakeprog"
 	"github.com/blocto/solana-go-sdk/program/system"
@@ -137,6 +138,7 @@ func addCreateStakeAccountIns(ins []solPTypes.Instruction, x *StakeOperationMeta
 			system.CreateAccountParam{
 				From:     p(x.Source),
 				New:      p(x.Stake),
+				Owner:    common.StakeProgramID,
 				Lamports: x.Lamports,
 				Space:    stakeprog.AccountSize}))
 	ins = append(ins,
