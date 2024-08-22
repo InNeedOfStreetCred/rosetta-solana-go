@@ -196,10 +196,14 @@ func (s *ConstructionAPIService) ConstructionMetadata(
 		log.Printf("acc=%+v\n", acc)
 	} else {
 		log.Printf("inside hasNonce=false")
-		recentBlockhash, _ := s.directClient.GetRecentBlockhash(ctx)
-		hash = recentBlockhash.Value.Blockhash
-		blockNumber = recentBlockhash.Context.Slot
-		feeCalculator = recentBlockhash.Value.FeeCalculator
+		status, _, _, _, err := s.client.Status(ctx)
+		if err != nil {
+			return nil, wrapErr(ErrUnableToParseIntermediateResult, err)
+		}
+		hash = status.Hash
+		blockNumber = uint64(status.Index)
+		// hardcoded to 5000 as the fee can not be fetched anymore without first building a transaction
+		feeCalculator = stypes.FeeCalculator{LamportsPerSignature: 5000}
 		log.Printf("feeCalculator=%d\n", feeCalculator)
 		log.Printf("blockHash=%s\n", hash)
 	}
